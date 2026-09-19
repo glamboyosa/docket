@@ -1,5 +1,6 @@
 .DS_Store
 .env
+/testdata/documents/downloaded/
 /docket
 /site/dist/
 /site/node_modules/

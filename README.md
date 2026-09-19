@@ -178,3 +178,35 @@ pnpm dev
 ```
 
 Check and build the site with `pnpm check` and `pnpm build`.
+
+## Testing
+
+The normal test suite uses fake HTTP transports. It checks provider payloads and responses without using API credits:
+
+```sh
+go test ./...
+```
+
+Download the public PDF fixtures from IRS, USCIS, CFPB, and CMS:
+
+```sh
+./scripts/download-test-documents.sh
+```
+
+Run the document corpus against one provider or both:
+
+```sh
+./scripts/test-live.sh openai
+./scripts/test-live.sh openrouter
+./scripts/test-live.sh all
+```
+
+Live tests load credentials from `.env`, send PDFs and images to the selected extraction provider, and send extracted text to TypeSafe. Each run uses a temporary Docket configuration, database, and library, then removes them. Downloaded PDFs remain under `testdata/documents/downloaded` for manual testing and are ignored by Git.
+
+Set `DOCKET_TEST_FILTER` to run matching cases only:
+
+```sh
+DOCKET_TEST_FILTER=form-w9 ./scripts/test-live.sh all
+```
+
+Override the default test models with `DOCKET_TEST_OPENAI_MODEL` or `DOCKET_TEST_OPENROUTER_MODEL`. Cases and accepted categories are listed in `testdata/cases.tsv`.

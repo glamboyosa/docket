@@ -1,0 +1,12 @@
+TEST COLLEGE 130
+TUITION STATEMENT
+
+Student: Test Student 130
+Term: Spring 2027
+Tuition: $4,200.00
+Library fee: $75.00
+Scholarship credit: -$1,000.00
+Balance due: $3,275.00
+Payment due: January 12, 2027
+
+This is synthetic test data and is not a real bill.
