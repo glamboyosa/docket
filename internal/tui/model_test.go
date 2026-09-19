@@ -64,7 +64,22 @@ func TestAddedMessageReportsFolderCount(t *testing.T) {
 	t.Parallel()
 	m := New(Dependencies{Config: config.Config{Provider: "openai", Model: "test-model"}})
 	updated, _ := m.Update(addedMsg{count: 3})
-	if message := updated.(Model).message; message != "3 documents copied, classified, and filed" {
+	if message := updated.(Model).message; message != "3 documents imported" {
 		t.Fatalf("message = %q", message)
+	}
+}
+
+func TestPartialFolderImportReportsCompletedDocuments(t *testing.T) {
+	t.Parallel()
+	m := New(Dependencies{
+		Config: config.Config{Provider: "openai", Model: "test-model"},
+		List:   func(context.Context) ([]domain.Document, error) { return nil, nil },
+	})
+	updated, cmd := m.Update(addedMsg{count: 2, err: context.DeadlineExceeded})
+	if message := updated.(Model).message; message != "2 documents filed; context deadline exceeded" {
+		t.Fatalf("message = %q", message)
+	}
+	if cmd == nil {
+		t.Fatal("expected library refresh after partial import")
 	}
 }

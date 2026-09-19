@@ -93,11 +93,11 @@ func add(paths []string) error {
 	}
 	for _, path := range paths {
 		docs, err := processPath(context.Background(), s, path)
-		if err != nil {
-			return err
-		}
 		for _, doc := range docs {
 			fmt.Printf("%s  %s  %.0f%%\n", doc.Category, doc.OriginalName, doc.CategoryConfidence*100)
+		}
+		if err != nil {
+			return err
 		}
 	}
 	return nil

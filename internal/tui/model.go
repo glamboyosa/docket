@@ -89,9 +89,13 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.busy = false
 		if msg.err != nil {
 			m.message = msg.err.Error()
+			if msg.count > 0 {
+				m.message = fmt.Sprintf("%d document%s filed; %s", msg.count, plural(msg.count), msg.err)
+				return m, m.loadDocuments()
+			}
 			return m, nil
 		}
-		m.message = fmt.Sprintf("%d document%s copied, classified, and filed", msg.count, plural(msg.count))
+		m.message = fmt.Sprintf("%d document%s imported", msg.count, plural(msg.count))
 		return m, m.loadDocuments()
 	case modelsMsg:
 		m.busy = false
