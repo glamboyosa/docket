@@ -9,3 +9,14 @@
 *.db
 *.db-shm
 *.db-wal
+# Editor duplicate copies (Finder / Cursor "File 2.vue")
+* [0-9].vue
+* [0-9].ts
+* [0-9].tsx
+* [0-9].js
+* [0-9].jsx
+* [0-9].css
+* [0-9].json
+* [0-9].md
+* [0-9].astro
+* [0-9].svg
