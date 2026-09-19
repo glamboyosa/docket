@@ -65,7 +65,7 @@ Docket requires Go 1.23 or later.
 go install github.com/glamboyosa/docket/cmd/docket@latest
 ```
 
-The binary does not modify source documents. During use, Docket creates a SQLite index and a managed document library. See [Files and network access](#files-and-network-access) for their locations.
+The binary does not modify source documents. During use, Docket creates a SQLite index and a managed document library. See [Local data and credentials](#local-data-and-credentials) for their locations.
 
 ## Configure credentials
 
