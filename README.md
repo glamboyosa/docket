@@ -15,7 +15,7 @@ Usage:
   docket auth forget <provider>  Remove a key from the OS keychain
   docket config                  Show extraction settings
   docket config <key> <value>    Set provider, model, or library
-  docket models [provider]       List attachment models from Models.dev
+  docket models [provider]       List live PDF and image extraction models
 ```
 
 ## Install
@@ -65,7 +65,7 @@ docket auth status
 | `docket config provider <provider>` | Select `openai` or `openrouter` |
 | `docket config model <model-id>` | Select the extraction model |
 | `docket config library <path>` | Change the managed library location |
-| `docket models [provider]` | List attachment-capable models from Models.dev |
+| `docket models [provider]` | List live models that support both PDF and image extraction |
 | `docket help` | Show command-line help |
 
 ### Examples
@@ -101,7 +101,7 @@ docket models openai
 docket config model <model-id>
 ```
 
-`docket models` reads [Models.dev](https://models.dev/) and lists models that accept attachments for the selected provider.
+`docket models` checks the provider's live catalog and uses [Models.dev](https://models.dev/) metadata to keep only models that accept both PDFs and images and return text. OpenAI results are also limited to models available to the configured API key.
 
 ### Terminal interface keys
 
@@ -112,7 +112,9 @@ docket config model <model-id>
 | `↑` / `k` | Move to the previous document or option |
 | `↓` / `j` | Move to the next document or option |
 | `s` | Open provider and model settings |
-| `Ctrl+L` | Load compatible models from Models.dev while settings are open |
+| `Enter` / `Ctrl+L` | Browse live compatible models while settings are open |
+| `Ctrl+S` | Save a manually entered model ID |
+| `Cmd+V` | Paste a file or folder path in the add-documents panel on macOS |
 | `r` | Refresh the document library |
 | `?` | Open keyboard help |
 | `Esc` | Close the current panel or cancel input |
@@ -139,9 +141,9 @@ Jev classifies documents into `tax`, `legal`, `financial`, `medical`, `identity`
 | Managed library | `~/Documents/Docket` by default; change with `docket config library <path>` |
 | SQLite index and configuration | `~/Library/Application Support/docket` on macOS, `${XDG_CONFIG_HOME:-~/.config}/docket` on Linux, or `%AppData%\docket` on Windows |
 | Credentials | Operating system keychain under the `docket` service, unless supplied by environment variable |
-| OpenAI or OpenRouter | Receives PDFs and images for transcription using the configured model |
+| OpenAI or OpenRouter | Receives PDFs and images for transcription and supplies its live model catalog |
 | TypeSafe | Receives extracted document text for Jev classification |
-| Models.dev | Queried only when listing models |
+| Models.dev | Supplies capability and release metadata when listing models |
 
 Extracted text is not stored. The SQLite index contains file paths, hashes, provider and model identifiers, classification results, status, and errors.
 

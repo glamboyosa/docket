@@ -23,7 +23,7 @@ func Default() (Config, error) {
 	}
 	return Config{
 		Provider:    "openrouter",
-		Model:       "google/gemini-2.5-flash",
+		Model:       "openrouter/auto",
 		LibraryPath: filepath.Join(home, "Documents", "Docket"),
 	}, nil
 }
@@ -61,6 +61,9 @@ func Load() (Config, error) {
 	}
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return Config{}, fmt.Errorf("parse config: %w", err)
+	}
+	if cfg.Provider == "openrouter" && cfg.Model == "google/gemini-2.5-flash" {
+		cfg.Model = "openrouter/auto"
 	}
 	if cfg.Provider != "openrouter" && cfg.Provider != "openai" {
 		return Config{}, fmt.Errorf("unsupported provider %q", cfg.Provider)

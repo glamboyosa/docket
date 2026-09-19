@@ -41,7 +41,7 @@ for provider_name in "${providers[@]}"; do
   if [[ "$provider_name" == "openai" ]]; then
     model="${DOCKET_TEST_OPENAI_MODEL:-gpt-4.1-mini}"
   else
-    model="${DOCKET_TEST_OPENROUTER_MODEL:-google/gemini-2.5-flash}"
+    model="${DOCKET_TEST_OPENROUTER_MODEL:-openrouter/auto}"
   fi
   DOCKET_HOME="$state" "$binary" config provider "$provider_name"
   DOCKET_HOME="$state" "$binary" config model "$model"

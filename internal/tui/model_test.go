@@ -96,7 +96,7 @@ func TestPartialFolderImportReportsCompletedDocuments(t *testing.T) {
 	}
 }
 
-func TestSettingsSwitchProviderAndSave(t *testing.T) {
+func TestSettingsSwitchProviderClearsIncompatibleModel(t *testing.T) {
 	t.Parallel()
 	var saved config.Config
 	m := New(Dependencies{
@@ -111,13 +111,13 @@ func TestSettingsSwitchProviderAndSave(t *testing.T) {
 	m = updated.(Model)
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRight})
 	m = updated.(Model)
-	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = updated.(Model)
 
-	if saved.Provider != "openai" || saved.Model != "router-model" {
-		t.Fatalf("saved config = %+v", saved)
+	if saved.Provider != "" {
+		t.Fatalf("unexpected saved config = %+v", saved)
 	}
-	if m.mode != browse || m.message != "Settings saved" {
+	if m.settings.Provider != "openai" || m.settings.Model != "" || m.message != "Choose a model before saving" {
 		t.Fatalf("mode = %v, message = %q", m.mode, m.message)
 	}
 }
@@ -125,8 +125,13 @@ func TestSettingsSwitchProviderAndSave(t *testing.T) {
 func TestModelPickerLoadsFiltersAndSelectsModel(t *testing.T) {
 	t.Parallel()
 	var requestedProvider string
+	var saved config.Config
 	m := New(Dependencies{
 		Config: config.Config{Provider: "openai", Model: "old-model"},
+		SaveConfig: func(cfg config.Config) error {
+			saved = cfg
+			return nil
+		},
 		Models: func(_ context.Context, providerName string) ([]provider.Model, error) {
 			requestedProvider = providerName
 			return []provider.Model{
@@ -159,8 +164,8 @@ func TestModelPickerLoadsFiltersAndSelectsModel(t *testing.T) {
 	}
 	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	m = updated.(Model)
-	if m.mode != settings || m.settings.Model != "gpt-mini" {
-		t.Fatalf("mode = %v, model = %q", m.mode, m.settings.Model)
+	if m.mode != browse || m.settings.Model != "gpt-mini" || saved.Model != "gpt-mini" {
+		t.Fatalf("mode = %v, model = %q, saved = %+v", m.mode, m.settings.Model, saved)
 	}
 }
 

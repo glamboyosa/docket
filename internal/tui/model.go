@@ -3,7 +3,6 @@ package tui
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -153,7 +152,7 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "/":
 		m.mode, m.input, m.cursor = search, "", 0
 	case "s":
-		m.mode, m.settings, m.settingRow = settings, m.deps.Config, 0
+		m.mode, m.settings, m.settingRow, m.message = settings, m.deps.Config, 0, ""
 	case "?":
 		m.mode = help
 	case "r":
@@ -200,15 +199,20 @@ func (m Model) handleSettings(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			} else {
 				m.settings.Provider = "openrouter"
 			}
+			m.settings.Model = ""
 		}
-	case "ctrl+l":
+	case "enter", "ctrl+l":
 		m.busy, m.message = true, "Loading compatible models…"
 		return m, tea.Batch(m.loadModels(), tick())
 	case "backspace":
 		if m.settingRow == 1 {
 			m.settings.Model = removeLastRune(m.settings.Model)
 		}
-	case "enter":
+	case "ctrl+s":
+		if m.settings.Model == "" {
+			m.message = "Choose a model before saving"
+			return m, nil
+		}
 		if err := m.deps.SaveConfig(m.settings); err != nil {
 			m.message = err.Error()
 			return m, nil
@@ -237,7 +241,12 @@ func (m Model) handleModelPicker(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		models := m.filteredModels()
 		if len(models) > 0 {
-			m.settings.Model, m.mode, m.settingRow = models[m.modelCursor].ID, settings, 1
+			m.settings.Model = models[m.modelCursor].ID
+			if err := m.deps.SaveConfig(m.settings); err != nil {
+				m.mode, m.message = settings, err.Error()
+				return m, nil
+			}
+			m.deps.Config, m.mode, m.message = m.settings, browse, "Extraction model updated"
 		}
 	case "backspace":
 		m.modelQuery = removeLastRune(m.modelQuery)
@@ -258,7 +267,7 @@ func (m Model) View() string {
 	base := m.mainView()
 	switch m.mode {
 	case addPath:
-		return m.panel("Add documents", "Paste or drag a file or folder path here.\n\n› "+m.input+"█\n\nenter import   esc cancel")
+		return m.panel("Add documents", "Paste or drag a file or folder path here.\n\n› "+m.input+"█\n\n⌘V paste   drag from Finder   enter import   esc cancel")
 	case settings:
 		return m.settingsView()
 	case modelPicker:
@@ -365,13 +374,20 @@ func (m Model) detailView(width int) string {
 
 func (m Model) settingsView() string {
 	provider := "  " + m.settings.Provider
-	model := "  " + m.settings.Model
+	modelName := m.settings.Model
+	if modelName == "" {
+		modelName = "Choose a compatible model"
+	}
+	model := "  " + modelName
 	if m.settingRow == 0 {
 		provider = selectedStyle.Render("› " + m.settings.Provider)
 	} else {
-		model = selectedStyle.Render("› " + m.settings.Model + "█")
+		model = selectedStyle.Render("› " + modelName + "█")
 	}
-	content := "Extraction provider\n" + provider + "\n\nModel\n" + model + "\n\n" + mutedStyle.Render("←/→ provider   tab field   ctrl+l Models.dev\nenter save   esc cancel")
+	content := "Extraction provider\n" + provider + "\n\nModel\n" + model + "\n\n" + mutedStyle.Render("←/→ provider   tab field   enter browse live models\nctrl+s save typed model   esc cancel")
+	if m.message != "" {
+		content += "\n\n" + mutedStyle.Render(m.message)
+	}
 	return m.panel("Settings", content)
 }
 
@@ -384,7 +400,11 @@ func (m Model) modelsView() string {
 		start = m.modelCursor - limit + 1
 	}
 	for index := start; index < len(models) && index < start+limit; index++ {
-		line := truncate(models[index].Name+"  "+models[index].ID, max(24, m.width-14))
+		meta := models[index].ReleaseDate
+		if models[index].Free {
+			meta = strings.TrimSpace(meta + "  free")
+		}
+		line := truncate(models[index].Name+"  "+models[index].ID+"  "+meta, max(24, m.width-14))
 		if index == m.modelCursor {
 			line = selectedStyle.Render("› " + line)
 		} else {
@@ -395,8 +415,8 @@ func (m Model) modelsView() string {
 	if len(models) == 0 {
 		lines = append(lines, mutedStyle.Render("No compatible attachment models found."))
 	}
-	lines = append(lines, "", mutedStyle.Render("type to filter   ↑/↓ select   enter choose   esc back"))
-	return m.panel("Models.dev · "+m.settings.Provider, strings.Join(lines, "\n"))
+	lines = append(lines, "", mutedStyle.Render("PDF + image · newest first · type to filter · ↑/↓ select · enter use"))
+	return m.panel("Compatible models · "+m.settings.Provider, strings.Join(lines, "\n"))
 }
 
 func (m Model) panel(title, content string) string {
@@ -450,7 +470,6 @@ func (m Model) addDocument(path string) tea.Cmd {
 func (m Model) loadModels() tea.Cmd {
 	return func() tea.Msg {
 		models, err := m.deps.Models(context.Background(), m.settings.Provider)
-		sort.SliceStable(models, func(i, j int) bool { return models[i].Name < models[j].Name })
 		return modelsMsg{models: models, err: err}
 	}
 }

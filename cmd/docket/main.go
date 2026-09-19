@@ -68,7 +68,13 @@ func runTUI() error {
 			return len(docs), err
 		},
 		SaveConfig: config.Save,
-		Models:     provider.Models,
+		Models: func(ctx context.Context, providerName string) ([]provider.Model, error) {
+			apiKey, err := config.Secret(providerName)
+			if err != nil {
+				return nil, err
+			}
+			return provider.Models(ctx, providerName, apiKey)
+		},
 	})
 	_, err = tea.NewProgram(model, tea.WithAltScreen()).Run()
 	return err
@@ -221,7 +227,11 @@ func listModels(args []string) error {
 	if len(args) == 1 {
 		providerName = args[0]
 	}
-	models, err := provider.Models(context.Background(), providerName)
+	apiKey, err := config.Secret(providerName)
+	if err != nil {
+		return err
+	}
+	models, err := provider.Models(context.Background(), providerName, apiKey)
 	if err != nil {
 		return err
 	}
@@ -272,5 +282,5 @@ Usage:
   docket auth forget <provider>  Remove a key from the OS keychain
   docket config                  Show extraction settings
   docket config <key> <value>    Set provider, model, or library
-  docket models [provider]       List attachment models from Models.dev`)
+  docket models [provider]       List live PDF and image extraction models`)
 }
