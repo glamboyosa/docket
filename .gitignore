@@ -2,6 +2,7 @@
 /docket
 /site/dist/
 /site/node_modules/
+/site/.astro/
 *.db
 *.db-shm
 *.db-wal
