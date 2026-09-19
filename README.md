@@ -134,7 +134,7 @@ Docket accepts files up to 25 MB:
 
 Jev classifies documents into `tax`, `legal`, `financial`, `medical`, `identity`, `insurance`, `employment`, `education`, `housing`, `receipts`, `correspondence`, or `other`. Low-confidence classifications are marked for review.
 
-Docket turns Jev's score rubrics into practical guidance instead of displaying unexplained numbers. The selected document shows how carefully to handle it, whether a response was detected, how urgent that response appears, and a next step. These are triage signals; check the document itself for exact dates and obligations.
+Docket shows Jev's typed output—the category confidence, score values and rubric levels, and action probability—alongside practical guidance. The selected document also shows how carefully to handle it, whether a response was detected, and a next step. These are triage signals; check the document itself for exact dates and obligations.
 
 ## Files and network access
 

@@ -69,6 +69,7 @@ h1 i { color: var(--red-dark); font-style: normal; font-weight: 620; }
 .result dt { color: #898c80; }
 .result dd { margin: 0; color: var(--screen-text); text-align: right; }
 .screen-heading.second { margin-top: 34px; }
+.screen-heading.filed-heading { margin-top: 24px; }
 .result p { margin: 0; color: #a7aa9d; font: .65rem/1.5 var(--font-mono); }
 .result strong { color: var(--screen-text); }
 .file-tab { position: absolute; right: -1px; bottom: -27px; min-width: 112px; padding: 8px 13px; color: var(--sheet); background: var(--red); font: 700 .62rem/1 var(--font-mono); text-align: center; }

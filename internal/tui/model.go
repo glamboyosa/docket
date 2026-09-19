@@ -299,7 +299,11 @@ func (m Model) mainView() string {
 		frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 		status = accentStyle.Render(frames[m.frame%len(frames)]) + " " + status
 	}
-	bodyHeight := max(8, m.height-7)
+	footerLines := 1
+	if status != "" {
+		footerLines++
+	}
+	bodyHeight := max(8, m.height-8-footerLines)
 	var body string
 	if m.width < 82 {
 		body = panelStyle.Width(innerWidth).Height(bodyHeight).Render(m.listView(innerWidth-4, bodyHeight-2))
@@ -307,7 +311,7 @@ func (m Model) mainView() string {
 		leftWidth := innerWidth * 45 / 100
 		rightWidth := innerWidth - leftWidth - 1
 		left := panelStyle.Width(leftWidth).Height(bodyHeight).Render(m.listView(leftWidth-4, bodyHeight-2))
-		right := detailStyle.Width(rightWidth).Height(bodyHeight).Render(m.detailView(rightWidth - 4))
+		right := detailStyle.Width(rightWidth).Height(bodyHeight).Render(m.detailView(rightWidth-4, bodyHeight-2))
 		body = lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	}
 	guide := mutedStyle.Render(truncate("↑/↓ select   enter details   a add   / filter   s models   ? help   q quit", innerWidth))
@@ -349,7 +353,7 @@ func (m Model) listView(width, height int) string {
 	return query + strings.Join(lines, "\n")
 }
 
-func (m Model) detailView(width int) string {
+func (m Model) detailView(width, height int) string {
 	docs := m.visibleDocuments()
 	if len(docs) == 0 || m.cursor >= len(docs) {
 		return sectionStyle.Render("DETAIL") + "\n\n" + mutedStyle.Render("Classification details appear here.")
@@ -364,7 +368,7 @@ func (m Model) detailView(width int) string {
 		confidence = fmt.Sprintf("%.0f%%", doc.CategoryConfidence*100)
 	}
 	rows := []string{
-		sectionStyle.Render("CLASSIFICATION"), "",
+		sectionStyle.Render("JEV CLASSIFICATION"), "",
 		labelValue("Category", strings.ToUpper(category)),
 		labelValue("Confidence", confidence),
 	}
@@ -382,7 +386,7 @@ func (m Model) detailView(width int) string {
 	if doc.Error != "" {
 		rows = append(rows, "", errorStyle.Render(truncate(doc.Error, width)))
 	}
-	return strings.Join(rows, "\n")
+	return truncateLines(strings.Join(rows, "\n"), height)
 }
 
 func (m Model) inspectView(width int) string {
@@ -574,10 +578,13 @@ func guidanceRows(doc domain.Document, width int) []string {
 		review = "Required · verify category"
 	}
 	return []string{
-		"", sectionStyle.Render("JEV GUIDANCE"), "",
+		"", sectionStyle.Render("JEV OUTPUT"),
+		labelValue("Sensitivity", truncate(scoreOutput(doc.Sensitivity, sensitivityLevel(doc.Sensitivity)), valueWidth)),
+		labelValue("Urgency", truncate(scoreOutput(doc.Urgency, urgencyLevel(doc.Urgency)), valueWidth)),
+		labelValue("Needs action", fmt.Sprintf("%.0f%%", doc.NeedsActionProbability*100)),
+		"", sectionStyle.Render("DOCKET GUIDANCE"),
 		labelValue("Next step", truncate(nextStep(doc), valueWidth)),
-		labelValue("Handling", truncate(sensitivityGuidance(doc.Sensitivity), valueWidth)),
-		labelValue("Urgency", truncate(urgencyGuidance(doc.Urgency), valueWidth)),
+		labelValue("Handling", truncate(handlingGuidance(doc.Sensitivity), valueWidth)),
 		labelValue("Action", truncate(actionGuidance(doc), valueWidth)),
 		labelValue("Review", truncate(review, valueWidth)),
 		mutedStyle.Render(truncate("Triage signal · verify exact dates in the document", width)),
@@ -607,29 +614,46 @@ func nextStep(doc domain.Document) string {
 	return "File for reference"
 }
 
-func sensitivityGuidance(score float64) string {
+func scoreOutput(score float64, level string) string {
+	return fmt.Sprintf("%.1f / 3 · %s", score, level)
+}
+
+func sensitivityLevel(score float64) string {
 	switch {
 	case score < .5:
 		return "Routine"
 	case score < 1.5:
-		return "Personal · keep private"
+		return "Personal"
 	case score < 2.5:
-		return "Confidential · limit sharing"
+		return "Confidential"
 	default:
-		return "Highly sensitive · secure carefully"
+		return "Highly sensitive"
 	}
 }
 
-func urgencyGuidance(score float64) string {
+func urgencyLevel(score float64) string {
 	switch {
 	case score < .5:
-		return "No deadline detected"
+		return "No deadline"
 	case score < 1.5:
-		return "Can wait · plan follow-up"
+		return "Action eventually"
 	case score < 2.5:
-		return "Time-sensitive · act soon"
+		return "Time-sensitive"
 	default:
-		return "Urgent · act now"
+		return "Immediate"
+	}
+}
+
+func handlingGuidance(score float64) string {
+	switch {
+	case score < .5:
+		return "Normal handling"
+	case score < 1.5:
+		return "Keep private"
+	case score < 2.5:
+		return "Limit sharing"
+	default:
+		return "Secure carefully"
 	}
 }
 
@@ -667,6 +691,14 @@ func truncate(value string, width int) string {
 		return value
 	}
 	return string(runes[:width-1]) + "…"
+}
+
+func truncateLines(value string, height int) string {
+	lines := strings.Split(value, "\n")
+	if len(lines) <= height {
+		return value
+	}
+	return strings.Join(lines[:height], "\n")
 }
 
 func removeLastRune(value string) string {
