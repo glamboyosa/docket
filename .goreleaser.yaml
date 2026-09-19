@@ -1,0 +1,31 @@
+version: 2
+
+project_name: docket
+
+builds:
+  - id: docket
+    main: ./cmd/docket
+    binary: docket
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - ids:
+      - docket
+    name_template: "docket_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+checksum:
+  name_template: checksums.txt

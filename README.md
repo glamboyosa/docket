@@ -59,7 +59,15 @@ Usage:
 
 ## Install
 
-Docket requires Go 1.23 or later.
+Install the latest macOS or Linux release without Go:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/glamboyosa/docket/main/install.sh | sh
+```
+
+The installer detects Intel and ARM machines, verifies the release archive against its published SHA-256 checksum, and installs `docket` to `~/.local/bin`. If that directory is not on `PATH`, the installer prints the line to add to your shell profile. Set `DOCKET_INSTALL_DIR` to choose another directory.
+
+Alternatively, install from source with Go 1.23 or later:
 
 ```sh
 go install github.com/glamboyosa/docket/cmd/docket@latest
@@ -217,7 +225,7 @@ docket auth forget openrouter
 docket auth forget openai
 ```
 
-Then remove the `docket` binary from the Go binary directory. Delete the Docket user-config directory to remove the SQLite index and configuration. Delete the managed library separately if its copied documents are no longer needed. Source documents are not affected.
+Then remove the `docket` binary from `~/.local/bin`, `$DOCKET_INSTALL_DIR`, or the Go binary directory, depending on how it was installed. Delete the Docket user-config directory to remove the SQLite index and configuration. Delete the managed library separately if its copied documents are no longer needed. Source documents are not affected.
 
 If credentials were supplied through environment variables, unset them in the shell or profile where they were configured.
 
@@ -240,6 +248,17 @@ pnpm dev
 ```
 
 Check and build the site with `pnpm check` and `pnpm build`.
+
+## Release
+
+Push a semantic version tag to build macOS, Linux, and Windows binaries for Intel and ARM machines:
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow runs the Go tests and vet checks, then publishes archives and `checksums.txt` to GitHub Releases. Windows releases are ZIP archives; macOS and Linux releases are tarballs.
 
 ## Testing
 

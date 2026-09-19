@@ -2,6 +2,7 @@
 .env
 /testdata/documents/downloaded/
 /docket
+/dist/
 /site/dist/
 /site/node_modules/
 /site/.astro/
