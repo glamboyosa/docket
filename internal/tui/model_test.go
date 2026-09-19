@@ -32,9 +32,9 @@ func TestAddFlowCleansDraggedPath(t *testing.T) {
 	var added string
 	m := New(Dependencies{
 		Config: config.Config{Provider: "openai", Model: "test-model"},
-		Add: func(_ context.Context, path string) (*domain.Document, error) {
+		Add: func(_ context.Context, path string) (int, error) {
 			added = path
-			return &domain.Document{}, nil
+			return 1, nil
 		},
 	})
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
@@ -57,5 +57,14 @@ func TestAddFlowCleansDraggedPath(t *testing.T) {
 	}
 	if added != "/tmp/Test File.pdf" {
 		t.Fatalf("added path = %q", added)
+	}
+}
+
+func TestAddedMessageReportsFolderCount(t *testing.T) {
+	t.Parallel()
+	m := New(Dependencies{Config: config.Config{Provider: "openai", Model: "test-model"}})
+	updated, _ := m.Update(addedMsg{count: 3})
+	if message := updated.(Model).message; message != "3 documents copied, classified, and filed" {
+		t.Fatalf("message = %q", message)
 	}
 }

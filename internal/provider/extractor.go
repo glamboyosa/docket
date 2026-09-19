@@ -27,6 +27,11 @@ type RemoteExtractor struct {
 	Client   *http.Client
 }
 
+func RequiresRemoteExtraction(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	return ext != ".txt" && ext != ".md"
+}
+
 type openRouterRequest struct {
 	Model    string              `json:"model"`
 	Messages []openRouterMessage `json:"messages"`
@@ -78,8 +83,7 @@ type openAIContent struct {
 }
 
 func (e RemoteExtractor) Extract(ctx context.Context, path string) (string, error) {
-	ext := strings.ToLower(filepath.Ext(path))
-	if ext == ".txt" || ext == ".md" {
+	if !RequiresRemoteExtraction(path) {
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return "", fmt.Errorf("read text document: %w", err)

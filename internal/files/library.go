@@ -3,8 +3,10 @@ package files
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +21,40 @@ var supported = map[string]bool{
 
 type Library struct{ Root string }
 
+func Discover(path string) ([]string, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return nil, fmt.Errorf("inspect import path: %w", err)
+	}
+	if info.Mode().IsRegular() {
+		return []string{path}, nil
+	}
+	if !info.IsDir() {
+		return nil, fmt.Errorf("%s is not a regular file or directory", path)
+	}
+
+	var paths []string
+	err = filepath.WalkDir(path, func(candidate string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			return nil
+		}
+		if entry.Type().IsRegular() && supportedExtension(candidate) {
+			paths = append(paths, candidate)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("scan import directory: %w", err)
+	}
+	if len(paths) == 0 {
+		return nil, errors.New("directory contains no supported documents")
+	}
+	return paths, nil
+}
+
 func (l Library) Import(source string) (path, hash string, err error) {
 	info, err := os.Stat(source)
 	if err != nil {
@@ -31,7 +67,7 @@ func (l Library) Import(source string) (path, hash string, err error) {
 		return "", "", fmt.Errorf("document exceeds the 25 MB limit")
 	}
 	ext := strings.ToLower(filepath.Ext(source))
-	if !supported[ext] {
+	if !supportedExtension(source) {
 		return "", "", fmt.Errorf("unsupported document type %q", ext)
 	}
 
@@ -67,6 +103,10 @@ func (l Library) Import(source string) (path, hash string, err error) {
 		return "", "", fmt.Errorf("close library copy: %w", err)
 	}
 	return path, hash, nil
+}
+
+func supportedExtension(path string) bool {
+	return supported[strings.ToLower(filepath.Ext(path))]
 }
 
 func (l Library) File(path, category string) (string, error) {

@@ -63,8 +63,9 @@ func runTUI() error {
 	model := tui.New(tui.Dependencies{
 		Config: cfg,
 		List:   s.List,
-		Add: func(ctx context.Context, path string) (*domain.Document, error) {
-			return process(ctx, s, path)
+		Add: func(ctx context.Context, path string) (int, error) {
+			docs, err := processPath(ctx, s, path)
+			return len(docs), err
 		},
 		SaveConfig: config.Save,
 		Models:     provider.Models,
@@ -91,13 +92,31 @@ func add(paths []string) error {
 		paths = []string{path}
 	}
 	for _, path := range paths {
-		doc, err := process(context.Background(), s, path)
+		docs, err := processPath(context.Background(), s, path)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("%s  %s  %.0f%%\n", doc.Category, doc.OriginalName, doc.CategoryConfidence*100)
+		for _, doc := range docs {
+			fmt.Printf("%s  %s  %.0f%%\n", doc.Category, doc.OriginalName, doc.CategoryConfidence*100)
+		}
 	}
 	return nil
+}
+
+func processPath(ctx context.Context, s *store.Store, path string) ([]*domain.Document, error) {
+	paths, err := files.Discover(path)
+	if err != nil {
+		return nil, err
+	}
+	docs := make([]*domain.Document, 0, len(paths))
+	for _, candidate := range paths {
+		doc, err := process(ctx, s, candidate)
+		if err != nil {
+			return docs, fmt.Errorf("process %s: %w", candidate, err)
+		}
+		docs = append(docs, doc)
+	}
+	return docs, nil
 }
 
 func process(ctx context.Context, s *store.Store, path string) (*domain.Document, error) {
@@ -105,9 +124,12 @@ func process(ctx context.Context, s *store.Store, path string) (*domain.Document
 	if err != nil {
 		return nil, err
 	}
-	extractionKey, err := config.Secret(cfg.Provider)
-	if err != nil {
-		return nil, err
+	var extractionKey string
+	if provider.RequiresRemoteExtraction(path) {
+		extractionKey, err = config.Secret(cfg.Provider)
+		if err != nil {
+			return nil, err
+		}
 	}
 	jevKey, err := config.Secret("typesafe")
 	if err != nil {
@@ -243,7 +265,7 @@ func printHelp() {
 
 Usage:
   docket                         Open the terminal interface
-  docket add <path> [path…]      Import files
+  docket add <path> [path…]      Import files or directories
   docket add -                   Import pasted text from stdin
   docket auth status             Show credential sources
   docket auth set <provider>     Save a key to the OS keychain

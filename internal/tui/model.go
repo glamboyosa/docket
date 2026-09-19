@@ -18,7 +18,7 @@ import (
 type Dependencies struct {
 	Config     config.Config
 	List       func(context.Context) ([]domain.Document, error)
-	Add        func(context.Context, string) (*domain.Document, error)
+	Add        func(context.Context, string) (int, error)
 	SaveConfig func(config.Config) error
 	Models     func(context.Context, string) ([]provider.Model, error)
 }
@@ -57,7 +57,10 @@ type loadedMsg struct {
 	err  error
 }
 
-type addedMsg struct{ err error }
+type addedMsg struct {
+	count int
+	err   error
+}
 type tickMsg time.Time
 type modelsMsg struct {
 	models []provider.Model
@@ -88,7 +91,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			m.message = msg.err.Error()
 			return m, nil
 		}
-		m.message = "Document copied, classified, and filed"
+		m.message = fmt.Sprintf("%d document%s copied, classified, and filed", msg.count, plural(msg.count))
 		return m, m.loadDocuments()
 	case modelsMsg:
 		m.busy = false
@@ -166,7 +169,7 @@ func (m Model) handleInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if path == "" {
 			return m, nil
 		}
-		m.mode, m.busy, m.message = browse, true, "Copying document…"
+		m.mode, m.busy, m.message = browse, true, "Importing documents…"
 		return m, tea.Batch(m.addDocument(path), tick())
 	case "backspace":
 		m.input = removeLastRune(m.input)
@@ -249,7 +252,7 @@ func (m Model) View() string {
 	base := m.mainView()
 	switch m.mode {
 	case addPath:
-		return m.panel("Add a document", "Paste or drag a PDF, image, or text-file path here.\n\n› "+m.input+"█\n\nenter import   esc cancel")
+		return m.panel("Add documents", "Paste or drag a file or folder path here.\n\n› "+m.input+"█\n\nenter import   esc cancel")
 	case settings:
 		return m.settingsView()
 	case modelPicker:
@@ -433,8 +436,8 @@ func (m Model) loadDocuments() tea.Cmd {
 
 func (m Model) addDocument(path string) tea.Cmd {
 	return func() tea.Msg {
-		_, err := m.deps.Add(context.Background(), path)
-		return addedMsg{err: err}
+		count, err := m.deps.Add(context.Background(), path)
+		return addedMsg{count: count, err: err}
 	}
 }
 
@@ -485,6 +488,13 @@ func yesNo(value bool) string {
 		return "Yes"
 	}
 	return "No"
+}
+
+func plural(count int) string {
+	if count == 1 {
+		return ""
+	}
+	return "s"
 }
 
 func truncate(value string, width int) string {
