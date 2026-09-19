@@ -51,7 +51,24 @@ Check which credential source Docket will use:
 docket auth status
 ```
 
-## Usage
+## Commands
+
+| Command | What it does |
+| --- | --- |
+| `docket` | Open the terminal interface |
+| `docket add <path> [path…]` | Import one or more files or directories |
+| `docket add -` | Import text from standard input |
+| `docket auth status` | Show whether each credential comes from the environment, keychain, or is missing |
+| `docket auth set <provider>` | Read a TypeSafe, OpenAI, or OpenRouter key and save it to the OS keychain |
+| `docket auth forget <provider>` | Remove a saved key from the OS keychain |
+| `docket config` | Show the extraction provider, model, and library path |
+| `docket config provider <provider>` | Select `openai` or `openrouter` |
+| `docket config model <model-id>` | Select the extraction model |
+| `docket config library <path>` | Change the managed library location |
+| `docket models [provider]` | List attachment-capable models from Models.dev |
+| `docket help` | Show command-line help |
+
+### Examples
 
 Open the terminal interface:
 
@@ -85,6 +102,21 @@ docket config model <model-id>
 ```
 
 `docket models` reads [Models.dev](https://models.dev/) and lists models that accept attachments for the selected provider.
+
+### Terminal interface keys
+
+| Key | Action |
+| --- | --- |
+| `a` | Enter a file or folder path to import |
+| `/` | Filter documents by filename or category |
+| `↑` / `k` | Move to the previous document or option |
+| `↓` / `j` | Move to the next document or option |
+| `s` | Open provider and model settings |
+| `Ctrl+L` | Load compatible models from Models.dev while settings are open |
+| `r` | Refresh the document library |
+| `?` | Open keyboard help |
+| `Esc` | Close the current panel or cancel input |
+| `q` | Quit |
 
 ## Supported documents
 
