@@ -1,4 +1,6 @@
 ---
+import "@fontsource-variable/geist";
+import "@fontsource-variable/geist-mono";
 import "../styles/global.css";
 
 const installCommand = "go install github.com/glamboyosa/docket/cmd/docket@latest";
@@ -83,49 +85,61 @@ const installCommand = "go install github.com/glamboyosa/docket/cmd/docket@lates
         <p>Docket keeps deterministic work in Go and asks models only for the two judgments ordinary code cannot make.</p>
       </section>
 
-      <section class="record wrap" aria-label="How Docket processes a document">
-        <article class="record-flow">
-          <header><span>PROCESSING ROUTE</span><span>01/04</span></header>
-          <ol>
-            <li><b>01</b><div><strong>Copy</strong><p>The original stays where you left it. Work happens on a managed copy.</p></div><span class="route-state">LOCAL</span></li>
-            <li><b>02</b><div><strong>Read</strong><p>OpenAI or OpenRouter turns the PDF or image into text for classification.</p></div><span class="route-state external">YOUR KEY</span></li>
-            <li><b>03</b><div><strong>Decide</strong><p>Jev returns typed judgments and probabilities, not a paragraph to parse.</p></div><span class="route-state external">JEV</span></li>
-            <li><b>04</b><div><strong>File</strong><p>Go puts the copy in its category and writes the record to SQLite.</p></div><span class="route-state">LOCAL</span></li>
-          </ol>
-        </article>
-
-        <article class="record-custody">
-          <header><span>CHAIN OF CUSTODY</span><span>NON-DESTRUCTIVE</span></header>
-          <div class="custody-diagram" aria-hidden="true">
-            <div class="source-file"><i>PDF</i><strong>lease.pdf</strong><span>original</span></div>
-            <div class="copy-arrow"><span>copy</span>→</div>
-            <div class="source-file managed"><i>PDF</i><strong>lease.pdf</strong><span>Docket/inbox</span></div>
+      <section class="record wrap" aria-label="How Docket processes a document" data-record-explorer data-motion="pointer">
+        <div class="record-flow">
+          <header><span>PROCESSING ROUTE</span><span data-record-count>01/04</span></header>
+          <div class="record-tabs" role="tablist" aria-label="Processing steps">
+            <button type="button" role="tab" id="tab-copy" aria-controls="panel-copy" aria-selected="true" tabindex="0" data-record-tab="copy"><b>01</b><div><strong>Copy</strong><p>The source stays put. Docket works on its own copy.</p></div><span class="route-state">LOCAL</span></button>
+            <button type="button" role="tab" id="tab-read" aria-controls="panel-read" aria-selected="false" tabindex="-1" data-record-tab="read"><b>02</b><div><strong>Read</strong><p>Your model turns a PDF or image into text.</p></div><span class="route-state external">YOUR KEY</span></button>
+            <button type="button" role="tab" id="tab-decide" aria-controls="panel-decide" aria-selected="false" tabindex="-1" data-record-tab="decide"><b>03</b><div><strong>Decide</strong><p>Jev returns typed judgments and probabilities.</p></div><span class="route-state external">JEV</span></button>
+            <button type="button" role="tab" id="tab-file" aria-controls="panel-file" aria-selected="false" tabindex="-1" data-record-tab="file"><b>04</b><div><strong>File</strong><p>Go files the copy and updates the local index.</p></div><span class="route-state">LOCAL</span></button>
           </div>
-          <p>If extraction or classification fails, the copy waits in the inbox. Docket never moves, renames, or edits the source file.</p>
-        </article>
+        </div>
 
-        <article class="record-decision">
-          <header><span>DECISION RECORD</span><span>JEV-LATEST</span></header>
-          <div class="decision-top"><strong>housing</strong><b>94%</b></div>
-          <div class="meter"><i style="--value: 94%"></i></div>
-          <dl>
-            <dt>legal</dt><dd>4%</dd><dt>other</dt><dd>2%</dd>
-            <dt>sensitivity</dt><dd>1.8 / 3</dd><dt>needs_action</dt><dd>0.12</dd>
-          </dl>
-          <p>Low-confidence categories stay visible for human review instead of being treated as fact.</p>
-        </article>
+        <div class="record-stage">
+          <article class="record-panel is-active" role="tabpanel" id="panel-copy" aria-labelledby="tab-copy" data-record-panel="copy">
+            <header><span>CHAIN OF CUSTODY</span><span>NON-DESTRUCTIVE</span></header>
+            <div class="custody-diagram" aria-hidden="true">
+              <div class="source-file"><i>PDF</i><strong>lease.pdf</strong><span>original</span></div>
+              <div class="copy-arrow"><span>copy</span>→</div>
+              <div class="source-file managed"><i>PDF</i><strong>lease.pdf</strong><span>Docket/inbox</span></div>
+            </div>
+            <p>If anything fails, the copy waits in the inbox. Docket never moves, renames, or edits the source file.</p>
+          </article>
 
-        <article class="record-library">
-          <header><span>YOUR LIBRARY</span><span>SQLITE INDEX</span></header>
-          <div class="drawer-list">
-            <div><span>01</span><strong>tax/</strong><b>12</b></div>
-            <div><span>02</span><strong>housing/</strong><b>8</b></div>
-            <div><span>03</span><strong>receipts/</strong><b>31</b></div>
-            <div><span>04</span><strong>medical/</strong><b>5</b></div>
-            <div><span>05</span><strong>other/</strong><b>3</b></div>
-          </div>
-          <p>SQLite stores the index. The OS keychain stores credentials. Extracted text is not retained.</p>
-        </article>
+          <article class="record-panel" role="tabpanel" id="panel-read" aria-labelledby="tab-read" data-record-panel="read" hidden>
+            <header><span>EXTRACTION REQUEST</span><span>BYOK</span></header>
+            <div class="provider-diagram" aria-hidden="true">
+              <div><small>INPUT</small><strong>lease.pdf</strong><span>2.4 MB</span></div><i>→</i>
+              <div class="provider-box"><small>PROVIDER</small><strong>OpenRouter</strong><span>gemini-2.5-flash</span></div><i>→</i>
+              <div><small>OUTPUT</small><strong>Markdown</strong><span>4,218 chars</span></div>
+            </div>
+            <p>Text files are read locally. PDFs and images go only to the provider and model you selected.</p>
+          </article>
+
+          <article class="record-panel" role="tabpanel" id="panel-decide" aria-labelledby="tab-decide" data-record-panel="decide" hidden>
+            <header><span>DECISION RECORD</span><span>JEV-LATEST</span></header>
+            <div class="decision-top"><strong>housing</strong><b>94%</b></div>
+            <div class="meter"><i style="--value: 94%"></i></div>
+            <dl class="decision-data">
+              <dt>legal</dt><dd>4%</dd><dt>other</dt><dd>2%</dd>
+              <dt>sensitivity</dt><dd>1.8 / 3</dd><dt>needs_action</dt><dd>0.12</dd>
+            </dl>
+            <p>Low-confidence categories stay visible for human review instead of being treated as fact.</p>
+          </article>
+
+          <article class="record-panel" role="tabpanel" id="panel-file" aria-labelledby="tab-file" data-record-panel="file" hidden>
+            <header><span>YOUR LIBRARY</span><span>SQLITE INDEX</span></header>
+            <div class="drawer-list">
+              <div><span>01</span><strong>tax/</strong><b>12</b></div>
+              <div><span>02</span><strong>housing/</strong><b>8</b></div>
+              <div><span>03</span><strong>receipts/</strong><b>31</b></div>
+              <div><span>04</span><strong>medical/</strong><b>5</b></div>
+              <div><span>05</span><strong>other/</strong><b>3</b></div>
+            </div>
+            <p>SQLite stores the index. The OS keychain stores credentials. Extracted text is not retained.</p>
+          </article>
+        </div>
       </section>
 
       <section class="terminal-notes wrap">
@@ -171,6 +185,42 @@ const installCommand = "go install github.com/glamboyosa/docket/cmd/docket@lates
           if (!label) return;
           label.textContent = "copied";
           window.setTimeout(() => { label.textContent = "copy"; }, 1500);
+        });
+      }
+
+      const explorer = document.querySelector<HTMLElement>("[data-record-explorer]");
+      const tabs = [...document.querySelectorAll<HTMLButtonElement>("[data-record-tab]")];
+      const panels = [...document.querySelectorAll<HTMLElement>("[data-record-panel]")];
+      const count = document.querySelector<HTMLElement>("[data-record-count]");
+
+      const selectRecord = (tab: HTMLButtonElement) => {
+        const name = tab.getAttribute("data-record-tab");
+        for (const item of tabs) {
+          const selected = item === tab;
+          item.setAttribute("aria-selected", String(selected));
+          item.setAttribute("tabindex", selected ? "0" : "-1");
+        }
+        for (const panel of panels) {
+          const selected = panel.getAttribute("data-record-panel") === name;
+          panel.toggleAttribute("hidden", !selected);
+          panel.classList.toggle("is-active", selected);
+        }
+        const index = tabs.indexOf(tab);
+        if (count && index >= 0) count.textContent = `${String(index + 1).padStart(2, "0")}/${String(tabs.length).padStart(2, "0")}`;
+      };
+
+      for (const [index, tab] of tabs.entries()) {
+        tab.addEventListener("pointerdown", () => { if (explorer) explorer.dataset.motion = "pointer"; });
+        tab.addEventListener("click", () => selectRecord(tab));
+        tab.addEventListener("keydown", (event) => {
+          if (explorer) explorer.dataset.motion = "keyboard";
+          if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+          event.preventDefault();
+          const offset = event.key === "ArrowDown" ? 1 : -1;
+          const next = tabs[(index + offset + tabs.length) % tabs.length];
+          if (!next) return;
+          selectRecord(next);
+          next.focus();
         });
       }
     </script>
