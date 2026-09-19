@@ -49,6 +49,7 @@ h1 { font-size: clamp(3.6rem, 6.2vw, 6.35rem); line-height: .92; }
 h1 i { color: var(--red-dark); font-style: normal; font-weight: 620; }
 .intro { max-width: 560px; margin: 30px 0; color: #514d46; font: 1rem/1.7 var(--font-sans); text-wrap: pretty; }
 .fine-print { margin: 13px 0 0; color: var(--muted); font: .68rem/1.5 var(--font-mono); }
+.fine-print a { text-decoration-line: underline; text-decoration-thickness: from-font; text-underline-offset: 3px; text-decoration-skip-ink: auto; }
 .command { width: min(100%, 525px); min-height: 48px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 0 14px; color: var(--sheet); background: var(--ink); border: 0; border-radius: 2px; cursor: pointer; }
 .command span { color: #999286; }
 .command code { overflow: hidden; font: .7rem/1 var(--font-mono); white-space: nowrap; text-overflow: ellipsis; text-align: left; }
@@ -162,7 +163,7 @@ kbd { width: 32px; height: 32px; display: grid; place-items: center; background:
 .site-footer a { text-underline-offset: 4px; }
 
 @media (hover: hover) and (pointer: fine) {
-  nav a:hover, .site-footer a:hover { color: var(--red-dark); }
+  nav a:hover, .fine-print a:hover, .site-footer a:hover { color: var(--red-dark); }
   .command:hover b { color: #ffd1c4; }
   .record-tabs button:hover { background: #ebe6da; }
 }
