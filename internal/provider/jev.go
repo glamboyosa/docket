@@ -23,6 +23,41 @@ type Jev struct {
 	Client  *http.Client
 }
 
+type jevRequest struct {
+	State     jevState     `json:"state"`
+	Model     string       `json:"model"`
+	Questions jevQuestions `json:"questions"`
+}
+
+type jevState struct {
+	Document string `json:"document"`
+}
+
+type jevQuestions struct {
+	Category    choiceQuestion `json:"category"`
+	Sensitivity scoreQuestion  `json:"sensitivity"`
+	Urgency     scoreQuestion  `json:"urgency"`
+	NeedsAction noulQuestion   `json:"needs_action"`
+}
+
+type choiceQuestion struct {
+	Type         string            `json:"type"`
+	Instructions string            `json:"instructions"`
+	Criteria     map[string]string `json:"criteria"`
+}
+
+type scoreQuestion struct {
+	Type         string   `json:"type"`
+	Instructions string   `json:"instructions"`
+	Criteria     []string `json:"criteria"`
+}
+
+type noulQuestion struct {
+	Type         string            `json:"type"`
+	Instructions string            `json:"instructions"`
+	Criteria     map[string]string `json:"criteria"`
+}
+
 func (j Jev) Classify(ctx context.Context, text string) (domain.Classification, error) {
 	if j.BaseURL == "" {
 		j.BaseURL = "https://api.typesafe.ai/v1/systemone"
@@ -30,14 +65,14 @@ func (j Jev) Classify(ctx context.Context, text string) (domain.Classification, 
 	if j.Client == nil {
 		j.Client = &http.Client{Timeout: time.Minute}
 	}
-	payload := map[string]any{
-		"model": "jev-latest",
-		"state": map[string]string{"document": text},
-		"questions": map[string]any{
-			"category": map[string]any{
-				"type":         "choice",
-				"instructions": "Which single category best describes `document`? Use other only when no specific category clearly applies.",
-				"criteria": map[string]string{
+	payload := jevRequest{
+		Model: "jev-latest",
+		State: jevState{Document: text},
+		Questions: jevQuestions{
+			Category: choiceQuestion{
+				Type:         "choice",
+				Instructions: "Which single category best describes `document`? Use other only when no specific category clearly applies.",
+				Criteria: map[string]string{
 					"tax": "Tax returns, tax forms, assessments, or tax authority correspondence", "legal": "Contracts, court papers, notices, or legal agreements",
 					"financial": "Banking, investments, loans, statements, or financial records", "medical": "Healthcare, prescriptions, test results, or medical records",
 					"identity": "Identity, immigration, citizenship, or civil status documents", "insurance": "Insurance policies, claims, or coverage documents",
@@ -46,13 +81,13 @@ func (j Jev) Classify(ctx context.Context, text string) (domain.Classification, 
 					"correspondence": "General letters, messages, or formal correspondence", "other": "None of the other categories clearly apply",
 				},
 			},
-			"sensitivity": map[string]any{"type": "score", "instructions": "How sensitive is the information in `document`?", "criteria": []string{
+			Sensitivity: scoreQuestion{Type: "score", Instructions: "How sensitive is the information in `document`?", Criteria: []string{
 				"Public or routine", "Personal", "Confidential", "Highly sensitive identity, health, legal, or financial data",
 			}},
-			"urgency": map[string]any{"type": "score", "instructions": "How urgently must the recipient respond to `document`?", "criteria": []string{
+			Urgency: scoreQuestion{Type: "score", Instructions: "How urgently must the recipient respond to `document`?", Criteria: []string{
 				"No deadline or action", "Action eventually", "Time-sensitive", "Immediate deadline, penalty, or serious consequence",
 			}},
-			"needs_action": map[string]any{"type": "noul", "instructions": "Does `document` ask or require the recipient to take an action?", "criteria": map[string]string{
+			NeedsAction: noulQuestion{Type: "noul", Instructions: "Does `document` ask or require the recipient to take an action?", Criteria: map[string]string{
 				"true":  "The recipient is asked or required to respond, pay, submit, sign, attend, or complete another action",
 				"false": "The document is informational or archival and requires no recipient action",
 			}},

@@ -27,6 +27,56 @@ type RemoteExtractor struct {
 	Client   *http.Client
 }
 
+type openRouterRequest struct {
+	Model    string              `json:"model"`
+	Messages []openRouterMessage `json:"messages"`
+	Plugins  []openRouterPlugin  `json:"plugins,omitempty"`
+}
+
+type openRouterMessage struct {
+	Role    string              `json:"role"`
+	Content []openRouterContent `json:"content"`
+}
+
+type openRouterContent struct {
+	Type     string              `json:"type"`
+	Text     string              `json:"text,omitempty"`
+	File     *openRouterFile     `json:"file,omitempty"`
+	ImageURL *openRouterImageURL `json:"image_url,omitempty"`
+}
+
+type openRouterFile struct {
+	Filename string `json:"filename"`
+	FileData string `json:"file_data"`
+}
+
+type openRouterImageURL struct {
+	URL string `json:"url"`
+}
+
+type openRouterPlugin struct {
+	ID string `json:"id"`
+}
+
+type openAIRequest struct {
+	Model string        `json:"model"`
+	Input []openAIInput `json:"input"`
+}
+
+type openAIInput struct {
+	Role    string          `json:"role"`
+	Content []openAIContent `json:"content"`
+}
+
+type openAIContent struct {
+	Type     string `json:"type"`
+	Text     string `json:"text,omitempty"`
+	Filename string `json:"filename,omitempty"`
+	FileData string `json:"file_data,omitempty"`
+	ImageURL string `json:"image_url,omitempty"`
+	Detail   string `json:"detail,omitempty"`
+}
+
 func (e RemoteExtractor) Extract(ctx context.Context, path string) (string, error) {
 	ext := strings.ToLower(filepath.Ext(path))
 	if ext == ".txt" || ext == ".md" {
@@ -55,52 +105,62 @@ func (e RemoteExtractor) Extract(ctx context.Context, path string) (string, erro
 
 func (e RemoteExtractor) openRouter(ctx context.Context, path string, data []byte) (string, error) {
 	mime := mimeType(path)
-	var documentPart map[string]any
+	var documentPart openRouterContent
 	if strings.HasPrefix(mime, "image/") {
-		documentPart = map[string]any{"type": "image_url", "image_url": map[string]string{"url": dataURL(mime, data)}}
+		documentPart = openRouterContent{Type: "image_url", ImageURL: &openRouterImageURL{URL: dataURL(mime, data)}}
 	} else {
-		documentPart = map[string]any{"type": "file", "file": map[string]string{
-			"filename": filepath.Base(path), "file_data": dataURL(mime, data),
-		}}
+		documentPart = openRouterContent{Type: "file", File: &openRouterFile{Filename: filepath.Base(path), FileData: dataURL(mime, data)}}
 	}
-	payload := map[string]any{
-		"model": e.Model,
-		"messages": []any{map[string]any{"role": "user", "content": []any{
-			map[string]string{"type": "text", "text": extractionPrompt}, documentPart,
+	payload := openRouterRequest{
+		Model: e.Model,
+		Messages: []openRouterMessage{{Role: "user", Content: []openRouterContent{
+			{Type: "text", Text: extractionPrompt}, documentPart,
 		}}},
 	}
 	if mime == "application/pdf" {
-		payload["plugins"] = []any{map[string]any{"id": "file-parser"}}
+		payload.Plugins = []openRouterPlugin{{ID: "file-parser"}}
 	}
 	var response struct {
 		Choices []struct {
 			Message struct {
-				Content any `json:"content"`
+				Content string `json:"content"`
 			} `json:"message"`
 		} `json:"choices"`
 	}
-	if err := e.post(ctx, "https://openrouter.ai/api/v1/chat/completions", payload, &response, map[string]string{
+	payloadBody, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("encode OpenRouter request: %w", err)
+	}
+	body, err := e.post(ctx, "https://openrouter.ai/api/v1/chat/completions", payloadBody, map[string]string{
 		"Authorization": "Bearer " + e.APIKey,
 		"X-Title":       "Docket",
-	}); err != nil {
+	})
+	if err != nil {
 		return "", err
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return "", fmt.Errorf("decode extraction response: %w", err)
 	}
 	if len(response.Choices) == 0 {
 		return "", fmt.Errorf("OpenRouter returned no transcription")
 	}
-	return messageText(response.Choices[0].Message.Content)
+	text := strings.TrimSpace(response.Choices[0].Message.Content)
+	if text == "" {
+		return "", fmt.Errorf("OpenRouter returned no transcription")
+	}
+	return text, nil
 }
 
 func (e RemoteExtractor) openAI(ctx context.Context, path string, data []byte) (string, error) {
 	mime := mimeType(path)
-	part := map[string]any{"type": "input_file", "filename": filepath.Base(path), "file_data": dataURL(mime, data)}
+	part := openAIContent{Type: "input_file", Filename: filepath.Base(path), FileData: dataURL(mime, data)}
 	if strings.HasPrefix(mime, "image/") {
-		part = map[string]any{"type": "input_image", "image_url": dataURL(mime, data), "detail": "high"}
+		part = openAIContent{Type: "input_image", ImageURL: dataURL(mime, data), Detail: "high"}
 	}
-	payload := map[string]any{
-		"model": e.Model,
-		"input": []any{map[string]any{"role": "user", "content": []any{
-			map[string]string{"type": "input_text", "text": extractionPrompt}, part,
+	payload := openAIRequest{
+		Model: e.Model,
+		Input: []openAIInput{{Role: "user", Content: []openAIContent{
+			{Type: "input_text", Text: extractionPrompt}, part,
 		}}},
 	}
 	var response struct {
@@ -111,10 +171,18 @@ func (e RemoteExtractor) openAI(ctx context.Context, path string, data []byte) (
 			} `json:"content"`
 		} `json:"output"`
 	}
-	if err := e.post(ctx, "https://api.openai.com/v1/responses", payload, &response, map[string]string{
+	payloadBody, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("encode OpenAI request: %w", err)
+	}
+	body, err := e.post(ctx, "https://api.openai.com/v1/responses", payloadBody, map[string]string{
 		"Authorization": "Bearer " + e.APIKey,
-	}); err != nil {
+	})
+	if err != nil {
 		return "", err
+	}
+	if err := json.Unmarshal(body, &response); err != nil {
+		return "", fmt.Errorf("decode extraction response: %w", err)
 	}
 	for _, output := range response.Output {
 		for _, content := range output.Content {
@@ -126,14 +194,10 @@ func (e RemoteExtractor) openAI(ctx context.Context, path string, data []byte) (
 	return "", fmt.Errorf("OpenAI returned no transcription")
 }
 
-func (e RemoteExtractor) post(ctx context.Context, url string, payload any, result any, headers map[string]string) error {
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("encode extraction request: %w", err)
-	}
+func (e RemoteExtractor) post(ctx context.Context, url string, body []byte, headers map[string]string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("create extraction request: %w", err)
+		return nil, fmt.Errorf("create extraction request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	for key, value := range headers {
@@ -141,17 +205,18 @@ func (e RemoteExtractor) post(ctx context.Context, url string, payload any, resu
 	}
 	response, err := e.Client.Do(req)
 	if err != nil {
-		return fmt.Errorf("send extraction request: %w", err)
+		return nil, fmt.Errorf("send extraction request: %w", err)
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		message, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
-		return fmt.Errorf("extraction request failed (%d): %s", response.StatusCode, strings.TrimSpace(string(message)))
+		return nil, fmt.Errorf("extraction request failed (%d): %s", response.StatusCode, strings.TrimSpace(string(message)))
 	}
-	if err := json.NewDecoder(response.Body).Decode(result); err != nil {
-		return fmt.Errorf("decode extraction response: %w", err)
+	data, err := io.ReadAll(response.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read extraction response: %w", err)
 	}
-	return nil
+	return data, nil
 }
 
 func dataURL(mime string, data []byte) string {
@@ -169,28 +234,4 @@ func mimeType(path string) string {
 	default:
 		return "image/jpeg"
 	}
-}
-
-func messageText(content any) (string, error) {
-	if value, ok := content.(string); ok && strings.TrimSpace(value) != "" {
-		return strings.TrimSpace(value), nil
-	}
-	parts, ok := content.([]any)
-	if !ok {
-		return "", fmt.Errorf("provider returned an unsupported response")
-	}
-	var text strings.Builder
-	for _, part := range parts {
-		item, ok := part.(map[string]any)
-		if !ok {
-			continue
-		}
-		if value, ok := item["text"].(string); ok {
-			text.WriteString(value)
-		}
-	}
-	if strings.TrimSpace(text.String()) == "" {
-		return "", fmt.Errorf("provider returned no transcription")
-	}
-	return strings.TrimSpace(text.String()), nil
 }

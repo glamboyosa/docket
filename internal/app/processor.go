@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -51,12 +52,16 @@ func (p *Processor) Add(ctx context.Context, source string) (*domain.Document, e
 }
 
 func (p *Processor) Process(ctx context.Context, doc *domain.Document) error {
-	p.status(ctx, doc.ID, domain.StatusExtracting, "")
+	if err := p.status(ctx, doc.ID, domain.StatusExtracting, ""); err != nil {
+		return err
+	}
 	text, err := p.Extractor.Extract(ctx, doc.LibraryPath)
 	if err != nil {
 		return p.fail(ctx, doc.ID, fmt.Errorf("extract text: %w", err))
 	}
-	p.status(ctx, doc.ID, domain.StatusClassifying, "")
+	if err := p.status(ctx, doc.ID, domain.StatusClassifying, ""); err != nil {
+		return err
+	}
 	classification, err := p.Classifier.Classify(ctx, text)
 	if err != nil {
 		return p.fail(ctx, doc.ID, fmt.Errorf("classify document: %w", err))
@@ -74,14 +79,16 @@ func (p *Processor) Process(ctx context.Context, doc *domain.Document) error {
 	return nil
 }
 
-func (p *Processor) status(ctx context.Context, id int64, status domain.Status, message string) {
-	_ = p.Store.UpdateStatus(ctx, id, status, message)
+func (p *Processor) status(ctx context.Context, id int64, status domain.Status, message string) error {
+	if err := p.Store.UpdateStatus(ctx, id, status, message); err != nil {
+		return fmt.Errorf("update document status: %w", err)
+	}
 	if p.OnStatus != nil {
 		p.OnStatus(status)
 	}
+	return nil
 }
 
 func (p *Processor) fail(ctx context.Context, id int64, err error) error {
-	p.status(ctx, id, domain.StatusFailed, err.Error())
-	return err
+	return errors.Join(err, p.status(ctx, id, domain.StatusFailed, err.Error()))
 }
