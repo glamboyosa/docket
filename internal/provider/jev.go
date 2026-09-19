@@ -71,13 +71,13 @@ func (j Jev) Classify(ctx context.Context, text string) (domain.Classification, 
 		Questions: jevQuestions{
 			Category: choiceQuestion{
 				Type:         "choice",
-				Instructions: "Which single category best describes `document`? Use other only when no specific category clearly applies.",
+				Instructions: "Which single category best describes the primary domain and purpose of `document`? Prefer a domain-specific category over a generic financial record, invoice, or bill. Use other only when no specific category clearly applies.",
 				Criteria: map[string]string{
 					"tax": "Tax returns, tax forms, assessments, or tax authority correspondence", "legal": "Contracts, court papers, notices, or legal agreements",
-					"financial": "Banking, investments, loans, statements, or financial records", "medical": "Healthcare, prescriptions, test results, or medical records",
+					"financial": "Banking, investments, loans, account statements, or general financial records with no more specific domain", "medical": "Healthcare, prescriptions, test results, or medical records",
 					"identity": "Identity, immigration, citizenship, or civil status documents", "insurance": "Insurance policies, claims, or coverage documents",
-					"employment": "Employment contracts, pay records, reviews, or workplace documents", "education": "School records, certificates, transcripts, or course documents",
-					"housing": "Leases, property, utilities, or housing documents", "receipts": "Receipts, invoices, bills, or proofs of purchase",
+					"employment": "Employment contracts, pay records, reviews, or workplace documents", "education": "School records, tuition statements, certificates, transcripts, or course documents",
+					"housing": "Leases, property, utilities, or housing documents", "receipts": "Proofs of purchase, paid receipts, or generic vendor invoices and bills with no more specific domain",
 					"correspondence": "General letters, messages, or formal correspondence", "other": "None of the other categories clearly apply",
 				},
 			},

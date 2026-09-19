@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -48,5 +49,34 @@ func TestJevFlagsLowConfidenceForReview(t *testing.T) {
 	}
 	if !got.Review {
 		t.Fatal("expected low-confidence result to require review")
+	}
+}
+
+func TestJevPrioritizesDomainOverBillingFormat(t *testing.T) {
+	t.Parallel()
+	client := &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		var payload jevRequest
+		if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(payload.Questions.Category.Instructions, "Prefer a domain-specific category") {
+			t.Fatalf("category instructions = %q", payload.Questions.Category.Instructions)
+		}
+		if !strings.Contains(payload.Questions.Category.Criteria["education"], "tuition statements") {
+			t.Fatalf("education criteria = %q", payload.Questions.Category.Criteria["education"])
+		}
+		if !strings.Contains(payload.Questions.Category.Criteria["receipts"], "no more specific domain") {
+			t.Fatalf("receipts criteria = %q", payload.Questions.Category.Criteria["receipts"])
+		}
+		body := `{"answers":{"category":{"choice":"education","probabilities":{"education":0.9},"confidence":0.9},"sensitivity":{"score":1},"urgency":{"score":2},"needs_action":{"noul":0.8}}}`
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Request: request}, nil
+	})}
+
+	classification, err := (Jev{APIKey: "secret", BaseURL: "https://example.test", Client: client}).Classify(context.Background(), "Tuition statement")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if classification.Category != "education" {
+		t.Fatalf("category = %q", classification.Category)
 	}
 }
