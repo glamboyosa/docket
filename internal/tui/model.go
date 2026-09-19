@@ -461,6 +461,9 @@ func tick() tea.Cmd {
 
 func cleanPath(value string) string {
 	value = strings.TrimSpace(value)
+	if strings.HasPrefix(value, "[") && strings.HasSuffix(value, "]") {
+		value = strings.TrimSpace(value[1 : len(value)-1])
+	}
 	value = strings.Trim(value, "'\"")
 	return strings.ReplaceAll(value, "\\ ", " ")
 }

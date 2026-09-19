@@ -40,7 +40,7 @@ func TestAddFlowCleansDraggedPath(t *testing.T) {
 	})
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
 	m = updated.(Model)
-	for _, value := range []rune("/tmp/Test\\ File.pdf") {
+	for _, value := range []rune("[/tmp/Test\\ File.pdf]") {
 		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{value}})
 		m = updated.(Model)
 	}
