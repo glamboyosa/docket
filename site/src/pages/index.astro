@@ -39,7 +39,7 @@ const installCommand = "curl -fsSL https://docket.glamboyosa.xyz/install.sh | sh
         <div class="hero-copy">
           <p class="kicker">Document filing for the command line</p>
           <h1>Docket reads it.<br /><i>Then files it.</i></h1>
-          <p class="intro">Add a PDF, scan, or photo. Docket leaves the original untouched, makes a copy, and uses your model plus Jev to choose the right folder.</p>
+          <p class="intro">Add a PDF, scan, or photo. Your model reads it. Jev classifies it, scores sensitivity and urgency, and flags what needs your attention. Docket files a copy without touching the original.</p>
           <button class="command" type="button" data-command={installCommand} aria-label="Copy install command">
             <span aria-hidden="true">$</span><code>{installCommand}</code><b>copy</b>
           </button>
@@ -88,7 +88,7 @@ const installCommand = "curl -fsSL https://docket.glamboyosa.xyz/install.sh | sh
       <section class="section-heading wrap" id="record">
         <p class="kicker">Record 001 / what happens to a file</p>
         <h2>Your original stays put. Docket files the copy.</h2>
-        <p>Docket keeps deterministic work in Go and asks models only for the two judgments ordinary code cannot make.</p>
+        <p>Docket handles file copying and storage in Go. Your model extracts the text. Jev classifies the document, scores sensitivity and urgency, and estimates whether it needs action.</p>
       </section>
 
       <section class="record wrap" aria-label="How Docket processes a document" data-record-explorer data-motion="pointer">
