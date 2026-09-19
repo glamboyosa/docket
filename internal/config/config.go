@@ -29,6 +29,9 @@ func Default() (Config, error) {
 }
 
 func ConfigDir() (string, error) {
+	if dir := os.Getenv("DOCKET_HOME"); dir != "" {
+		return dir, nil
+	}
 	dir, err := os.UserConfigDir()
 	if err != nil {
 		return "", fmt.Errorf("find config directory: %w", err)
@@ -37,11 +40,7 @@ func ConfigDir() (string, error) {
 }
 
 func DataDir() (string, error) {
-	dir, err := os.UserConfigDir()
-	if err != nil {
-		return "", fmt.Errorf("find data directory: %w", err)
-	}
-	return filepath.Join(dir, "docket"), nil
+	return ConfigDir()
 }
 
 func Load() (Config, error) {
