@@ -90,7 +90,7 @@ const installCommand = "curl -fsSL https://docket.glamboyosa.xyz/install.sh | sh
       <section class="section-heading wrap" id="record">
         <p class="kicker">Record 001 / what happens to a file</p>
         <h2>Your original stays put. Docket files the copy.</h2>
-        <p>Docket handles file copying and storage in Go. Your model extracts the text. Jev classifies the document, scores sensitivity and urgency, and estimates whether it needs action.</p>
+        <p>Docket works from a copy, so the original stays where it is. Your model reads the document. Jev identifies what kind of document it is and whether it looks sensitive, urgent, or likely to need action.</p>
       </section>
 
       <section class="record wrap" aria-label="How Docket processes a document" data-record-explorer data-motion="pointer">
@@ -99,8 +99,8 @@ const installCommand = "curl -fsSL https://docket.glamboyosa.xyz/install.sh | sh
           <div class="record-tabs" role="tablist" aria-label="Processing steps">
             <button type="button" role="tab" id="tab-copy" aria-controls="panel-copy" aria-selected="true" tabindex="0" data-record-tab="copy"><b>01</b><div><strong>Copy</strong><p>The source stays put. Docket works on its own copy.</p></div><span class="route-state">LOCAL</span></button>
             <button type="button" role="tab" id="tab-read" aria-controls="panel-read" aria-selected="false" tabindex="-1" data-record-tab="read"><b>02</b><div><strong>Read</strong><p>Your model turns a PDF or image into text.</p></div><span class="route-state external">YOUR KEY</span></button>
-            <button type="button" role="tab" id="tab-decide" aria-controls="panel-decide" aria-selected="false" tabindex="-1" data-record-tab="decide"><b>03</b><div><strong>Decide</strong><p>Jev returns typed judgments and probabilities.</p></div><span class="route-state external">JEV</span></button>
-            <button type="button" role="tab" id="tab-file" aria-controls="panel-file" aria-selected="false" tabindex="-1" data-record-tab="file"><b>04</b><div><strong>File</strong><p>Go files the copy and updates the local index.</p></div><span class="route-state">LOCAL</span></button>
+            <button type="button" role="tab" id="tab-decide" aria-controls="panel-decide" aria-selected="false" tabindex="-1" data-record-tab="decide"><b>03</b><div><strong>Decide</strong><p>Jev returns a category, sensitivity and urgency scores, an action estimate, and confidence levels.</p></div><span class="route-state external">JEV</span></button>
+            <button type="button" role="tab" id="tab-file" aria-controls="panel-file" aria-selected="false" tabindex="-1" data-record-tab="file"><b>04</b><div><strong>File</strong><p>Docket files the copy and records its category and location.</p></div><span class="route-state">LOCAL</span></button>
           </div>
         </div>
 
@@ -133,11 +133,11 @@ const installCommand = "curl -fsSL https://docket.glamboyosa.xyz/install.sh | sh
               <dt>legal</dt><dd>4%</dd><dt>other</dt><dd>2%</dd>
               <dt>sensitivity</dt><dd>1.8 / 3</dd><dt>needs_action</dt><dd>0.12</dd>
             </dl>
-            <p>Low-confidence categories stay visible for human review instead of being treated as fact.</p>
+            <p>If Jev is unsure, Docket shows the other likely categories and marks the document for review.</p>
           </article>
 
           <article class="record-panel" role="tabpanel" id="panel-file" aria-labelledby="tab-file" data-record-panel="file" hidden>
-            <header><span>YOUR LIBRARY</span><span>SQLITE INDEX</span></header>
+            <header><span>YOUR LIBRARY</span><span>LOCAL DATABASE</span></header>
             <div class="drawer-list">
               <div><span>01</span><strong>tax/</strong><b>12</b></div>
               <div><span>02</span><strong>housing/</strong><b>8</b></div>
@@ -145,7 +145,7 @@ const installCommand = "curl -fsSL https://docket.glamboyosa.xyz/install.sh | sh
               <div><span>04</span><strong>medical/</strong><b>5</b></div>
               <div><span>05</span><strong>other/</strong><b>3</b></div>
             </div>
-            <p>SQLite stores the index. The OS keychain stores credentials. Extracted text is not retained.</p>
+            <p>SQLite saves each document’s name, category, sensitivity and urgency scores, action estimate, and copied-file location. API keys stay in the OS keychain. Docket discards extracted text after classification.</p>
           </article>
         </div>
       </section>
@@ -166,9 +166,9 @@ const installCommand = "curl -fsSL https://docket.glamboyosa.xyz/install.sh | sh
       <section class="roadmap wrap" id="roadmap">
         <header><span>FILING PLAN</span><span>SEPTEMBER 2026</span></header>
         <div class="roadmap-grid">
-          <div><small>AVAILABLE</small><strong>Terminal paths and pasted text</strong><p>OpenAI, OpenRouter, Jev, local history, and a copy-safe library.</p></div>
-          <div><small>NEXT DRAWER</small><strong>Graphical picker and watched folders</strong><p>Faster intake without changing the underlying custody model.</p></div>
-          <div><small>LATER</small><strong>Optional local OCR</strong><p>Keep BYOK as the easy path; add offline extraction for people who want it.</p></div>
+          <div><small>AVAILABLE</small><strong>Terminal paths and pasted text</strong><p>Use OpenAI or OpenRouter to read documents, then Jev to classify them. Docket keeps the results and copied files on your machine.</p></div>
+          <div><small>NEXT DRAWER</small><strong>Graphical picker and watched folders</strong><p>Add files without dragging paths into the terminal. Docket will still leave every original untouched.</p></div>
+          <div><small>LATER</small><strong>Optional local OCR</strong><p>Read scans on your machine without an API key or upload.</p></div>
         </div>
       </section>
 
