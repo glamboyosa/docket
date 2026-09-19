@@ -1,4 +1,5 @@
 ---
+import Analytics from "@vercel/analytics/astro";
 import "@fontsource-variable/geist";
 import "@fontsource-variable/geist-mono";
 import "../styles/global.css";
@@ -20,6 +21,7 @@ const installCommand = "curl -fsSL https://docket.glamboyosa.xyz/install.sh | sh
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://docket.glamboyosa.xyz/" />
     <title>Docket | Document filing for the command line</title>
+    {import.meta.env.PROD && <Analytics />}
   </head>
   <body>
     <header class="site-header wrap">

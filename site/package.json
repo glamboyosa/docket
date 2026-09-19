@@ -16,5 +16,8 @@
     "astro": "^5.13.5",
     "typescript": "^5.9.2"
   },
-  "packageManager": "pnpm@7.5.2"
+  "packageManager": "pnpm@7.5.2",
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
+  }
 }
