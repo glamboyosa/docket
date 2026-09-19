@@ -1,6 +1,45 @@
 # Docket
 
-Docket is a Go terminal application that copies, reads, classifies, and files documents into a local library.
+Docket is a Go terminal document classifier built around [TypeSafe's Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev). It copies a document into a local library, extracts its text, asks Jev for typed classification decisions, and files the copy without moving or editing the source.
+
+## Jev is the decision layer
+
+[Jev](https://docs.typesafe.ai/concepts/system-one) is TypeSafe's first System One model. Instead of generating a paragraph and making the application parse it, Jev answers bounded questions with typed values, probabilities, and confidence. Docket asks Jev four questions about every document:
+
+| Jev primitive | Question | Result used by Docket |
+| --- | --- | --- |
+| `Choice` | What is the document's primary category? | Category, probability distribution, and confidence |
+| `Score` | How sensitive is its information? | A score from 0 to 3 and the nearest handling level |
+| `Score` | How urgently must the recipient respond? | A score from 0 to 3 and the nearest urgency level |
+| `Noul` | Does the document require the recipient to act? | Probability that a response, payment, signature, submission, attendance, or other action is required |
+
+Docket keeps those Jev results visible and puts deterministic Go logic around them:
+
+```text
+JEV CLASSIFICATION
+Category       HOUSING
+Confidence     94%
+
+JEV OUTPUT
+Sensitivity    0.8 / 3 · Personal
+Urgency        1.6 / 3 · Time-sensitive
+Needs action   82%
+
+DOCKET GUIDANCE
+Next step      Act soon; check exact deadline
+Handling       Keep private
+Action         Likely required · 82%
+Review         Not required
+```
+
+Go applies explicit thresholds to flag uncertain categories for review, translate scores into practical labels, choose the next step, and select the filing destination. Jev does not run OCR, copy files, or choose filesystem paths. It receives extracted text and provides the judgments that drive the workflow.
+
+| Stage | Implementation | Result |
+| --- | --- | --- |
+| Copy | Local Go code | A managed copy; the source remains untouched |
+| Read | Local parsing for text and Markdown, or the selected OpenAI/OpenRouter model for PDFs and images | Extracted text |
+| Decide | Jev | Typed category, sensitivity, urgency, and action judgments |
+| File | Local Go code and SQLite | Searchable metadata and a category folder |
 
 ```console
 $ docket help
@@ -132,9 +171,7 @@ Docket accepts files up to 25 MB:
 - plain text
 - Markdown
 
-Jev classifies documents into `tax`, `legal`, `financial`, `medical`, `identity`, `insurance`, `employment`, `education`, `housing`, `receipts`, `correspondence`, or `other`. Low-confidence classifications are marked for review.
-
-Docket shows Jev's typed output—the category confidence, score values and rubric levels, and action probability—alongside practical guidance. The selected document also shows how carefully to handle it, whether a response was detected, and a next step. These are triage signals; check the document itself for exact dates and obligations.
+Jev classifies documents into `tax`, `legal`, `financial`, `medical`, `identity`, `insurance`, `employment`, `education`, `housing`, `receipts`, `correspondence`, or `other`. Low-confidence classifications are marked for review. Jev's results are triage signals, so check the document itself for exact dates and obligations.
 
 ## Files and network access
 
