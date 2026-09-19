@@ -111,6 +111,7 @@ docket config model <model-id>
 | `/` | Filter documents by filename or category |
 | `↑` / `k` | Move to the previous document or option |
 | `↓` / `j` | Move to the next document or option |
+| `Enter` | Inspect the selected document and its Jev guidance |
 | `s` | Open provider and model settings |
 | `Enter` / `Ctrl+L` | Browse live compatible models while settings are open |
 | `Ctrl+S` | Save a manually entered model ID |
@@ -132,6 +133,8 @@ Docket accepts files up to 25 MB:
 - Markdown
 
 Jev classifies documents into `tax`, `legal`, `financial`, `medical`, `identity`, `insurance`, `employment`, `education`, `housing`, `receipts`, `correspondence`, or `other`. Low-confidence classifications are marked for review.
+
+Docket turns Jev's score rubrics into practical guidance instead of displaying unexplained numbers. The selected document shows how carefully to handle it, whether a response was detected, how urgent that response appears, and a next step. These are triage signals; check the document itself for exact dates and obligations.
 
 ## Files and network access
 

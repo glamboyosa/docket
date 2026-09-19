@@ -30,6 +30,7 @@ const (
 	search
 	settings
 	modelPicker
+	inspectDocument
 	help
 )
 
@@ -130,6 +131,11 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleSettings(key)
 	case modelPicker:
 		return m.handleModelPicker(key)
+	case inspectDocument:
+		if key.String() == "esc" || key.String() == "enter" || key.String() == "q" {
+			m.mode = browse
+		}
+		return m, nil
 	case help:
 		if key.String() == "esc" || key.String() == "?" || key.String() == "q" {
 			m.mode = browse
@@ -153,6 +159,10 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.mode, m.input, m.cursor = search, "", 0
 	case "s":
 		m.mode, m.settings, m.settingRow, m.message = settings, m.deps.Config, 0, ""
+	case "enter":
+		if len(m.visibleDocuments()) > 0 {
+			m.mode = inspectDocument
+		}
 	case "?":
 		m.mode = help
 	case "r":
@@ -272,8 +282,10 @@ func (m Model) View() string {
 		return m.settingsView()
 	case modelPicker:
 		return m.modelsView()
+	case inspectDocument:
+		return m.panel("Document details", m.inspectView(min(max(38, m.width-16), 72)))
 	case help:
-		return m.panel("Keyboard", "a  add files or folder\n/  filter documents\ns  provider settings\nr  refresh library\n?  this help\nq  quit\n\nOriginal files are never moved or changed.")
+		return m.panel("Keyboard", "↑/↓ or j/k  select a document\nenter        inspect selected document\na            add files or a folder\n/            filter documents\ns            provider and models\nr            refresh library\n?            this help\nq            quit\n\nSelected guidance appears on the right when space allows.\nOriginal files are never moved or changed.")
 	default:
 		return base
 	}
@@ -287,7 +299,7 @@ func (m Model) mainView() string {
 		frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
 		status = accentStyle.Render(frames[m.frame%len(frames)]) + " " + status
 	}
-	bodyHeight := max(8, m.height-6)
+	bodyHeight := max(8, m.height-7)
 	var body string
 	if m.width < 82 {
 		body = panelStyle.Width(innerWidth).Height(bodyHeight).Render(m.listView(innerWidth-4, bodyHeight-2))
@@ -298,9 +310,10 @@ func (m Model) mainView() string {
 		right := detailStyle.Width(rightWidth).Height(bodyHeight).Render(m.detailView(rightWidth - 4))
 		body = lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	}
-	footer := mutedStyle.Render("a add   / filter   s settings   ? help   q quit")
+	guide := mutedStyle.Render(truncate("↑/↓ select   enter details   a add   / filter   s models   ? help   q quit", innerWidth))
+	footer := guide
 	if status != "" {
-		footer = truncate(status, innerWidth)
+		footer = truncate(status, innerWidth) + "\n" + guide
 	}
 	return lipgloss.NewStyle().Padding(1, 2).Render(header + "\n\n" + body + "\n" + footer)
 }
@@ -322,11 +335,10 @@ func (m Model) listView(width, height int) string {
 	}
 	for index := start; index < len(docs) && len(lines)-2 < available; index++ {
 		doc := docs[index]
-		category := doc.Category
-		if category == "" {
-			category = string(doc.Status)
-		}
-		line := fmt.Sprintf("%-2s %-*s %s", statusMark(doc), max(8, width-16), truncate(doc.OriginalName, max(8, width-16)), category)
+		label := documentListLabel(doc)
+		labelWidth := min(18, max(8, lipgloss.Width(label)))
+		nameWidth := max(8, width-labelWidth-4)
+		line := fmt.Sprintf("%-2s %-*s %s", statusMark(doc), nameWidth, truncate(doc.OriginalName, nameWidth), truncate(label, labelWidth))
 		if index == m.cursor {
 			line = selectedStyle.Width(width).Render(line)
 		} else {
@@ -355,20 +367,47 @@ func (m Model) detailView(width int) string {
 		sectionStyle.Render("CLASSIFICATION"), "",
 		labelValue("Category", strings.ToUpper(category)),
 		labelValue("Confidence", confidence),
-		labelValue("Sensitivity", scoreLabel(doc.Sensitivity)),
-		labelValue("Urgency", scoreLabel(doc.Urgency)),
-		labelValue("Needs action", yesNo(doc.NeedsAction)),
-		labelValue("Review", yesNo(doc.Review)),
+	}
+	if doc.Status == domain.StatusFiled {
+		rows = append(rows, guidanceRows(doc, width)...)
+	}
+	rows = append(rows,
 		"", sectionStyle.Render("FILE"), "",
 		truncate(doc.OriginalName, width),
 		mutedStyle.Render(truncate(doc.LibraryPath, width)),
 		"", sectionStyle.Render("EXTRACTION"), "",
-		labelValue("Provider", doc.Provider),
-		mutedStyle.Render(truncate(doc.Model, width)),
-	}
+		labelValue("Provider used", doc.Provider),
+		labelValue("Model used", truncate(doc.Model, max(1, width-14))),
+	)
 	if doc.Error != "" {
 		rows = append(rows, "", errorStyle.Render(truncate(doc.Error, width)))
 	}
+	return strings.Join(rows, "\n")
+}
+
+func (m Model) inspectView(width int) string {
+	docs := m.visibleDocuments()
+	if len(docs) == 0 || m.cursor >= len(docs) {
+		return mutedStyle.Render("No document selected.")
+	}
+	doc := docs[m.cursor]
+	category := doc.Category
+	if category == "" {
+		category = "Not classified"
+	}
+	confidence := "—"
+	if doc.CategoryConfidence > 0 {
+		confidence = fmt.Sprintf("%.0f%%", doc.CategoryConfidence*100)
+	}
+	rows := []string{
+		truncate(doc.OriginalName, width),
+		labelValue("Category", strings.ToUpper(category)),
+		labelValue("Confidence", confidence),
+	}
+	if doc.Status == domain.StatusFiled {
+		rows = append(rows, guidanceRows(doc, width)...)
+	}
+	rows = append(rows, "", labelValue("Provider used", doc.Provider), labelValue("Model used", truncate(doc.Model, max(1, width-14))))
 	return strings.Join(rows, "\n")
 }
 
@@ -500,6 +539,27 @@ func statusMark(doc domain.Document) string {
 	return mutedStyle.Render("○")
 }
 
+func documentListLabel(doc domain.Document) string {
+	category := doc.Category
+	if category == "" {
+		return string(doc.Status)
+	}
+	if doc.Review {
+		return category + " · review"
+	}
+	if !doc.NeedsAction {
+		return category
+	}
+	switch {
+	case doc.Urgency >= 2.5:
+		return category + " · now"
+	case doc.Urgency >= 1.5:
+		return category + " · soon"
+	default:
+		return category + " · action"
+	}
+}
+
 func labelValue(label, value string) string {
 	if value == "" {
 		value = "—"
@@ -507,15 +567,91 @@ func labelValue(label, value string) string {
 	return mutedStyle.Render(fmt.Sprintf("%-14s", label)) + value
 }
 
-func scoreLabel(score float64) string {
-	return fmt.Sprintf("%.1f / 3", score)
+func guidanceRows(doc domain.Document, width int) []string {
+	valueWidth := max(1, width-14)
+	review := "Not required"
+	if doc.Review {
+		review = "Required · verify category"
+	}
+	return []string{
+		"", sectionStyle.Render("JEV GUIDANCE"), "",
+		labelValue("Next step", truncate(nextStep(doc), valueWidth)),
+		labelValue("Handling", truncate(sensitivityGuidance(doc.Sensitivity), valueWidth)),
+		labelValue("Urgency", truncate(urgencyGuidance(doc.Urgency), valueWidth)),
+		labelValue("Action", truncate(actionGuidance(doc), valueWidth)),
+		labelValue("Review", truncate(review, valueWidth)),
+		mutedStyle.Render(truncate("Triage signal · verify exact dates in the document", width)),
+	}
 }
 
-func yesNo(value bool) string {
-	if value {
-		return "Yes"
+func nextStep(doc domain.Document) string {
+	if actionIsUnclear(doc.NeedsActionProbability) {
+		return "Check for a request or deadline"
 	}
-	return "No"
+	if doc.NeedsAction {
+		switch {
+		case doc.Urgency >= 2.5:
+			return "Act now; check exact deadline"
+		case doc.Urgency >= 1.5:
+			return "Act soon; check exact deadline"
+		default:
+			return "Plan follow-up"
+		}
+	}
+	if doc.Urgency >= 1.5 {
+		return "Check the document for a deadline"
+	}
+	if doc.Review {
+		return "Verify the category"
+	}
+	return "File for reference"
+}
+
+func sensitivityGuidance(score float64) string {
+	switch {
+	case score < .5:
+		return "Routine"
+	case score < 1.5:
+		return "Personal · keep private"
+	case score < 2.5:
+		return "Confidential · limit sharing"
+	default:
+		return "Highly sensitive · secure carefully"
+	}
+}
+
+func urgencyGuidance(score float64) string {
+	switch {
+	case score < .5:
+		return "No deadline detected"
+	case score < 1.5:
+		return "Can wait · plan follow-up"
+	case score < 2.5:
+		return "Time-sensitive · act soon"
+	default:
+		return "Urgent · act now"
+	}
+}
+
+func actionGuidance(doc domain.Document) string {
+	probability := doc.NeedsActionProbability
+	if actionIsUnclear(probability) {
+		return fmt.Sprintf("Unclear · %.0f%% likelihood", probability*100)
+	}
+	if doc.NeedsAction {
+		if probability == 0 {
+			return "Likely required"
+		}
+		return fmt.Sprintf("Likely required · %.0f%%", probability*100)
+	}
+	if probability == 0 {
+		return "Not detected"
+	}
+	return fmt.Sprintf("Not detected · %.0f%% likelihood", probability*100)
+}
+
+func actionIsUnclear(probability float64) bool {
+	return probability >= .35 && probability < .65
 }
 
 func plural(count int) string {

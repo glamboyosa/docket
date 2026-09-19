@@ -188,10 +188,10 @@ kbd { width: 32px; height: 32px; display: grid; place-items: center; background:
   h1 { font-size: clamp(3.1rem, 15.5vw, 4.6rem); }
   .command { width: 100%; }
   .product-frame { box-shadow: 8px 9px 0 #d7d1c4; }
-  .product-screen { min-height: 290px; grid-template-columns: 1fr; }
-  .files { border-right: 0; }
-  .result { display: none; }
-  .frame-bottom { gap: 12px; overflow: hidden; white-space: nowrap; }
+  .product-screen { min-height: 0; grid-template-columns: 1fr; }
+  .files { border-right: 0; border-bottom: 1px solid var(--screen-rule); }
+  .result { padding-block: 20px 26px; }
+  .frame-bottom { min-height: 0; flex-wrap: wrap; gap: 10px 16px; padding-block: 12px; }
   .formats { align-items: flex-start; flex-direction: column; justify-content: center; gap: 14px; padding-block: 20px; }
   .formats div { width: 100%; justify-content: space-between; gap: 8px; }
   .section-heading { padding-block: 90px 38px; }

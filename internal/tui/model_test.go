@@ -18,12 +18,80 @@ func TestLibraryViewShowsClassification(t *testing.T) {
 	m.width, m.height = 100, 28
 	updated, _ := m.Update(loadedMsg{docs: []domain.Document{{
 		OriginalName: "rental-agreement.pdf", Category: "housing", CategoryConfidence: .94,
+		Sensitivity: .8, Urgency: 1.6, NeedsAction: true, NeedsActionProbability: .82,
 		Status: domain.StatusFiled, Provider: "openai", Model: "test-model", LibraryPath: "/library/housing/rental-agreement.pdf",
 	}}})
 	view := updated.(Model).View()
-	for _, value := range []string{"rental-agreement.pdf", "HOUSING", "94%", "openai"} {
+	for _, value := range []string{
+		"rental-agreement.pdf", "HOUSING", "94%", "openai",
+		"Personal · keep private", "Time-sensitive · act soon", "Likely required · 82%", "Act soon; check exact deadline",
+		"housing · soon", "↑/↓ select", "a add", "s models",
+	} {
 		if !strings.Contains(view, value) {
 			t.Fatalf("view does not contain %q", value)
+		}
+	}
+	if strings.Contains(view, "/ 3") {
+		t.Fatal("view exposes an unexplained raw score")
+	}
+}
+
+func TestGuidanceEscalatesAmbiguousActionAndCategory(t *testing.T) {
+	t.Parallel()
+	doc := domain.Document{
+		Category: "other", CategoryConfidence: .42, Review: true,
+		Sensitivity: 2.7, Urgency: 1.8, NeedsActionProbability: .52,
+	}
+	view := strings.Join(guidanceRows(doc, 60), "\n")
+	for _, value := range []string{"Check for a request or deadline", "Highly sensitive · secure carefully", "Unclear · 52%", "Required · verify category"} {
+		if !strings.Contains(view, value) {
+			t.Fatalf("guidance does not contain %q: %s", value, view)
+		}
+	}
+}
+
+func TestScoreGuidanceUsesNearestRubricLevel(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name        string
+		score       float64
+		sensitivity string
+		urgency     string
+	}{
+		{name: "level zero", score: .49, sensitivity: "Routine", urgency: "No deadline detected"},
+		{name: "level one", score: .5, sensitivity: "Personal · keep private", urgency: "Can wait · plan follow-up"},
+		{name: "level two", score: 1.5, sensitivity: "Confidential · limit sharing", urgency: "Time-sensitive · act soon"},
+		{name: "level three", score: 2.5, sensitivity: "Highly sensitive · secure carefully", urgency: "Urgent · act now"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := sensitivityGuidance(test.score); got != test.sensitivity {
+				t.Fatalf("sensitivityGuidance(%v) = %q", test.score, got)
+			}
+			if got := urgencyGuidance(test.score); got != test.urgency {
+				t.Fatalf("urgencyGuidance(%v) = %q", test.score, got)
+			}
+		})
+	}
+}
+
+func TestEnterInspectsSelectedDocumentAtNarrowWidth(t *testing.T) {
+	t.Parallel()
+	m := New(Dependencies{Config: config.Config{Provider: "openai", Model: "test-model"}})
+	m.width, m.height = 72, 28
+	m.docs = []domain.Document{{
+		OriginalName: "notice.pdf", Category: "legal", CategoryConfidence: .9,
+		Status: domain.StatusFiled, Sensitivity: 2, Urgency: 2.8, NeedsAction: true, NeedsActionProbability: .94,
+	}}
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+	if m.mode != inspectDocument {
+		t.Fatalf("mode = %v", m.mode)
+	}
+	view := m.View()
+	for _, value := range []string{"Document details", "Urgent · act now", "Act now; check exact deadline"} {
+		if !strings.Contains(view, value) {
+			t.Fatalf("detail view does not contain %q", value)
 		}
 	}
 }
@@ -73,11 +141,19 @@ func TestAddedMessageReportsFolderCount(t *testing.T) {
 func TestLibraryRefreshPreservesImportResult(t *testing.T) {
 	t.Parallel()
 	m := New(Dependencies{Config: config.Config{Provider: "openai", Model: "test-model"}})
+	m.width, m.height = 100, 28
 	updated, _ := m.Update(addedMsg{count: 1})
 	m = updated.(Model)
 	updated, _ = m.Update(loadedMsg{docs: []domain.Document{{OriginalName: "receipt.png", Category: "receipts"}}})
-	if message := updated.(Model).message; message != "1 document imported" {
+	m = updated.(Model)
+	if message := m.message; message != "1 document imported" {
 		t.Fatalf("message = %q", message)
+	}
+	view := m.View()
+	for _, value := range []string{"1 document imported", "enter details", "a add", "s models"} {
+		if !strings.Contains(view, value) {
+			t.Fatalf("view does not contain %q", value)
+		}
 	}
 }
 
