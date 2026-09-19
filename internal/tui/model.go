@@ -78,9 +78,11 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
 	case loadedMsg:
-		m.docs, m.message = msg.docs, ""
+		m.docs = msg.docs
 		if msg.err != nil {
 			m.message = msg.err.Error()
+		} else if m.message == "Loading library…" {
+			m.message = ""
 		}
 		if m.cursor >= len(m.docs) && m.cursor > 0 {
 			m.cursor = len(m.docs) - 1

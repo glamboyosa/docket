@@ -70,6 +70,17 @@ func TestAddedMessageReportsFolderCount(t *testing.T) {
 	}
 }
 
+func TestLibraryRefreshPreservesImportResult(t *testing.T) {
+	t.Parallel()
+	m := New(Dependencies{Config: config.Config{Provider: "openai", Model: "test-model"}})
+	updated, _ := m.Update(addedMsg{count: 1})
+	m = updated.(Model)
+	updated, _ = m.Update(loadedMsg{docs: []domain.Document{{OriginalName: "receipt.png", Category: "receipts"}}})
+	if message := updated.(Model).message; message != "1 document imported" {
+		t.Fatalf("message = %q", message)
+	}
+}
+
 func TestPartialFolderImportReportsCompletedDocuments(t *testing.T) {
 	t.Parallel()
 	m := New(Dependencies{
