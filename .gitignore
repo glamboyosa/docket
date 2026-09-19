@@ -1,0 +1,7 @@
+.DS_Store
+/docket
+/site/dist/
+/site/node_modules/
+*.db
+*.db-shm
+*.db-wal
