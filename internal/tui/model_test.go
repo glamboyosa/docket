@@ -9,6 +9,7 @@ import (
 
 	"github.com/glamboyosa/docket/internal/config"
 	"github.com/glamboyosa/docket/internal/domain"
+	"github.com/glamboyosa/docket/internal/provider"
 )
 
 func TestLibraryViewShowsClassification(t *testing.T) {
@@ -81,5 +82,93 @@ func TestPartialFolderImportReportsCompletedDocuments(t *testing.T) {
 	}
 	if cmd == nil {
 		t.Fatal("expected library refresh after partial import")
+	}
+}
+
+func TestSettingsSwitchProviderAndSave(t *testing.T) {
+	t.Parallel()
+	var saved config.Config
+	m := New(Dependencies{
+		Config: config.Config{Provider: "openrouter", Model: "router-model", LibraryPath: "/library"},
+		SaveConfig: func(cfg config.Config) error {
+			saved = cfg
+			return nil
+		},
+	})
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updated.(Model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRight})
+	m = updated.(Model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+
+	if saved.Provider != "openai" || saved.Model != "router-model" {
+		t.Fatalf("saved config = %+v", saved)
+	}
+	if m.mode != browse || m.message != "Settings saved" {
+		t.Fatalf("mode = %v, message = %q", m.mode, m.message)
+	}
+}
+
+func TestModelPickerLoadsFiltersAndSelectsModel(t *testing.T) {
+	t.Parallel()
+	var requestedProvider string
+	m := New(Dependencies{
+		Config: config.Config{Provider: "openai", Model: "old-model"},
+		Models: func(_ context.Context, providerName string) ([]provider.Model, error) {
+			requestedProvider = providerName
+			return []provider.Model{
+				{ID: "gpt-large", Name: "Large"},
+				{ID: "gpt-mini", Name: "Mini"},
+			}, nil
+		},
+	})
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	m = updated.(Model)
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyCtrlL})
+	m = updated.(Model)
+	if !m.busy || cmd == nil {
+		t.Fatal("expected model loading to start")
+	}
+	batch, ok := cmd().(tea.BatchMsg)
+	if !ok || len(batch) == 0 {
+		t.Fatal("expected model-loading batch")
+	}
+	updated, _ = m.Update(batch[0]())
+	m = updated.(Model)
+	if requestedProvider != "openai" || m.mode != modelPicker || len(m.models) != 2 || m.models[0].Name != "Large" {
+		t.Fatalf("provider = %q, mode = %v, models = %+v", requestedProvider, m.mode, m.models)
+	}
+
+	for _, value := range []rune("mini") {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{value}})
+		m = updated.(Model)
+	}
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+	if m.mode != settings || m.settings.Model != "gpt-mini" {
+		t.Fatalf("mode = %v, model = %q", m.mode, m.settings.Model)
+	}
+}
+
+func TestSearchFiltersDocuments(t *testing.T) {
+	t.Parallel()
+	m := New(Dependencies{Config: config.Config{Provider: "openai", Model: "test-model"}})
+	m.docs = []domain.Document{
+		{OriginalName: "lease.pdf", Category: "housing"},
+		{OriginalName: "receipt.jpg", Category: "receipts"},
+	}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	m = updated.(Model)
+	for _, value := range []rune("hous") {
+		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{value}})
+		m = updated.(Model)
+	}
+	visible := m.visibleDocuments()
+	if len(visible) != 1 || visible[0].OriginalName != "lease.pdf" {
+		t.Fatalf("visible documents = %+v", visible)
 	}
 }
