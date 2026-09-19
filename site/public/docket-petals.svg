@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="32" viewBox="0 0 128 32">
+  <defs>
+    <path id="petal-a" d="M0-3C-5-6-6-12-1-14C4-14 7-8 3-3Z"/>
+    <path id="petal-b" d="M0-3C-4-7-5-12 0-14C5-12 6-7 3-3Z"/>
+  </defs>
+  <g transform="translate(16 16)">
+    <path d="M1 4C4 8 3 12 1 15" fill="none" stroke="#66704c" stroke-width="2" stroke-linecap="round"/>
+    <g fill="#d94b35"><use href="#petal-a"/><use href="#petal-b" transform="rotate(72)"/><use href="#petal-a" transform="rotate(144)"/><use href="#petal-b" transform="rotate(216)"/><use href="#petal-a" transform="rotate(288)"/></g>
+    <circle r="3" fill="#f0b44b"/><circle r="1.25" fill="#25231f"/>
+  </g>
+  <g transform="translate(48 16) rotate(5)">
+    <path d="M1 4C3 8 3 12 0 15" fill="none" stroke="#66704c" stroke-width="2" stroke-linecap="round"/>
+    <g fill="#d94b35"><use href="#petal-b"/><use href="#petal-a" transform="rotate(72)"/><use href="#petal-b" transform="rotate(144)"/><use href="#petal-a" transform="rotate(216)"/><use href="#petal-b" transform="rotate(288)"/></g>
+    <circle r="3" fill="#f0b44b"/><circle r="1.25" fill="#25231f"/>
+  </g>
+  <g transform="translate(80 16) rotate(-4)">
+    <path d="M1 4C5 8 4 12 2 15" fill="none" stroke="#66704c" stroke-width="2" stroke-linecap="round"/>
+    <g fill="#c84231"><use href="#petal-a"/><use href="#petal-a" transform="rotate(72)"/><use href="#petal-b" transform="rotate(144)"/><use href="#petal-b" transform="rotate(216)"/><use href="#petal-a" transform="rotate(288)"/></g>
+    <circle r="3" fill="#f0b44b"/><circle r="1.25" fill="#25231f"/>
+  </g>
+  <g transform="translate(112 16) rotate(3)">
+    <path d="M1 4C3 8 2 12-1 15" fill="none" stroke="#66704c" stroke-width="2" stroke-linecap="round"/>
+    <g fill="#d94b35"><use href="#petal-b"/><use href="#petal-b" transform="rotate(72)"/><use href="#petal-a" transform="rotate(144)"/><use href="#petal-a" transform="rotate(216)"/><use href="#petal-b" transform="rotate(288)"/></g>
+    <circle r="3" fill="#f0b44b"/><circle r="1.25" fill="#25231f"/>
+  </g>
+</svg>

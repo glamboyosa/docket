@@ -1,0 +1,178 @@
+---
+import "../styles/global.css";
+
+const installCommand = "go install github.com/glamboyosa/docket/cmd/docket@latest";
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="theme-color" content="#f1eee5" />
+    <meta name="description" content="Docket copies, reads, classifies, and files documents from your terminal with your model and Jev." />
+    <link rel="canonical" href="https://docket.glamboyosa.xyz/" />
+    <meta property="og:title" content="Docket | Document filing for the command line" />
+    <meta property="og:description" content="Drop in a document. Get back a tidy local library." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://docket.glamboyosa.xyz/" />
+    <title>Docket | Document filing for the command line</title>
+  </head>
+  <body>
+    <header class="site-header wrap">
+      <a class="brand" href="/" aria-label="Docket home">
+        <span class="petal-mark" aria-hidden="true"><img src="/docket-petals.svg" alt="" width="128" height="32" /></span>
+        <span>Docket</span>
+      </a>
+      <div class="header-note">Local document filing for macOS, Linux, and Windows</div>
+      <nav aria-label="Primary navigation">
+        <a href="#record">How it works</a>
+        <a href="https://github.com/glamboyosa/docket">Source ↗</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero wrap">
+        <div class="hero-copy">
+          <p class="kicker">Document filing for the command line</p>
+          <h1>Docket reads it.<br /><i>Then files it.</i></h1>
+          <p class="intro">Add a PDF, scan, or photo. Docket leaves the original untouched, makes a copy, and uses your model plus Jev to choose the right folder.</p>
+          <button class="command" type="button" data-command={installCommand} aria-label="Copy install command">
+            <span aria-hidden="true">$</span><code>{installCommand}</code><b>copy</b>
+          </button>
+          <p class="fine-print">Open source · Bring your own OpenAI or OpenRouter key · Classification by Jev</p>
+        </div>
+
+        <div class="product-frame" aria-label="Preview of Docket classifying an apartment lease">
+          <div class="frame-top"><span>DOCKET / LIBRARY</span><span>4 DOCUMENTS</span></div>
+          <div class="product-screen">
+            <div class="files">
+              <div class="screen-heading">DOCUMENTS</div>
+              <div class="file"><b>●</b><span>Form-W2-2025.pdf</span><em>tax</em></div>
+              <div class="file selected"><b>●</b><span>apartment-lease.pdf</span><em>housing</em></div>
+              <div class="file review"><b>!</b><span>clinic-results.pdf</span><em>medical</em></div>
+              <div class="file"><b>●</b><span>train-receipt.jpg</span><em>receipts</em></div>
+            </div>
+            <div class="result">
+              <div class="screen-heading">CLASSIFICATION</div>
+              <dl>
+                <dt>Category</dt><dd>HOUSING</dd>
+                <dt>Confidence</dt><dd>94%</dd>
+                <dt>Sensitivity</dt><dd>1.8 / 3</dd>
+                <dt>Urgency</dt><dd>0.3 / 3</dd>
+                <dt>Needs action</dt><dd>No</dd>
+                <dt>Review</dt><dd>No</dd>
+              </dl>
+              <div class="screen-heading second">FILED AT</div>
+              <p>~/Documents/Docket/<strong>housing/</strong></p>
+            </div>
+          </div>
+          <div class="frame-bottom"><span>A ADD</span><span>/ FILTER</span><span>S SETTINGS</span><span>? HELP</span><span>Q QUIT</span></div>
+          <span class="file-tab">HOUSING</span>
+        </div>
+      </section>
+
+      <div class="formats wrap" aria-label="Supported document formats">
+        <p>Reads the files already piling up on your machine</p>
+        <div><span>PDF</span><span>PNG</span><span>JPG</span><span>WEBP</span><span>TXT</span><span>MD</span></div>
+      </div>
+
+      <section class="section-heading wrap" id="record">
+        <p class="kicker">Record 001 / what happens to a file</p>
+        <h2>Four jobs. Clear custody.</h2>
+        <p>Docket keeps deterministic work in Go and asks models only for the two judgments ordinary code cannot make.</p>
+      </section>
+
+      <section class="record wrap" aria-label="How Docket processes a document">
+        <article class="record-flow">
+          <header><span>PROCESSING ROUTE</span><span>01/04</span></header>
+          <ol>
+            <li><b>01</b><div><strong>Copy</strong><p>The original stays where you left it. Work happens on a managed copy.</p></div><span class="route-state">LOCAL</span></li>
+            <li><b>02</b><div><strong>Read</strong><p>OpenAI or OpenRouter turns the PDF or image into text for classification.</p></div><span class="route-state external">YOUR KEY</span></li>
+            <li><b>03</b><div><strong>Decide</strong><p>Jev returns typed judgments and probabilities, not a paragraph to parse.</p></div><span class="route-state external">JEV</span></li>
+            <li><b>04</b><div><strong>File</strong><p>Go puts the copy in its category and writes the record to SQLite.</p></div><span class="route-state">LOCAL</span></li>
+          </ol>
+        </article>
+
+        <article class="record-custody">
+          <header><span>CHAIN OF CUSTODY</span><span>NON-DESTRUCTIVE</span></header>
+          <div class="custody-diagram" aria-hidden="true">
+            <div class="source-file"><i>PDF</i><strong>lease.pdf</strong><span>original</span></div>
+            <div class="copy-arrow"><span>copy</span>→</div>
+            <div class="source-file managed"><i>PDF</i><strong>lease.pdf</strong><span>Docket/inbox</span></div>
+          </div>
+          <p>If extraction or classification fails, the copy waits in the inbox. Docket never moves, renames, or edits the source file.</p>
+        </article>
+
+        <article class="record-decision">
+          <header><span>DECISION RECORD</span><span>JEV-LATEST</span></header>
+          <div class="decision-top"><strong>housing</strong><b>94%</b></div>
+          <div class="meter"><i style="--value: 94%"></i></div>
+          <dl>
+            <dt>legal</dt><dd>4%</dd><dt>other</dt><dd>2%</dd>
+            <dt>sensitivity</dt><dd>1.8 / 3</dd><dt>needs_action</dt><dd>0.12</dd>
+          </dl>
+          <p>Low-confidence categories stay visible for human review instead of being treated as fact.</p>
+        </article>
+
+        <article class="record-library">
+          <header><span>YOUR LIBRARY</span><span>SQLITE INDEX</span></header>
+          <div class="drawer-list">
+            <div><span>01</span><strong>tax/</strong><b>12</b></div>
+            <div><span>02</span><strong>housing/</strong><b>8</b></div>
+            <div><span>03</span><strong>receipts/</strong><b>31</b></div>
+            <div><span>04</span><strong>medical/</strong><b>5</b></div>
+            <div><span>05</span><strong>other/</strong><b>3</b></div>
+          </div>
+          <p>SQLite stores the index. The OS keychain stores credentials. Extracted text is not retained.</p>
+        </article>
+      </section>
+
+      <section class="terminal-notes wrap">
+        <div>
+          <p class="kicker">Made for the command line</p>
+          <h2>Drag a path in.<br />Keep your hands on the keys.</h2>
+        </div>
+        <div class="key-list">
+          <div><kbd>A</kbd><span>Add a file or drag its path into the terminal</span></div>
+          <div><kbd>/</kbd><span>Filter by filename or category</span></div>
+          <div><kbd>S</kbd><span>Switch provider or choose a Models.dev model</span></div>
+          <div><kbd>?</kbd><span>See every shortcut</span></div>
+        </div>
+      </section>
+
+      <section class="roadmap wrap" id="roadmap">
+        <header><span>FILING PLAN</span><span>SEPTEMBER 2026</span></header>
+        <div class="roadmap-grid">
+          <div><small>AVAILABLE</small><strong>Terminal paths and pasted text</strong><p>OpenAI, OpenRouter, Jev, local history, and a copy-safe library.</p></div>
+          <div><small>NEXT DRAWER</small><strong>Graphical picker and watched folders</strong><p>Faster intake without changing the underlying custody model.</p></div>
+          <div><small>LATER</small><strong>Optional local OCR</strong><p>Keep BYOK as the easy path; add offline extraction for people who want it.</p></div>
+        </div>
+      </section>
+
+      <section class="closing wrap">
+        <span class="petal-mark petal-large" aria-hidden="true"><img src="/docket-petals.svg" alt="" width="128" height="32" /></span>
+        <h2>Your Downloads folder<br />has waited long enough.</h2>
+        <button class="command command-closing" type="button" data-command={installCommand} aria-label="Copy install command">
+          <span aria-hidden="true">$</span><code>{installCommand}</code><b>copy</b>
+        </button>
+      </section>
+    </main>
+
+    <footer class="site-footer wrap"><span>Docket is open source.</span><a href="https://github.com/glamboyosa/docket">github.com/glamboyosa/docket ↗</a></footer>
+
+    <script>
+      for (const button of document.querySelectorAll("[data-command]")) {
+        button.addEventListener("click", async () => {
+          const command = button.getAttribute("data-command");
+          if (!command) return;
+          await navigator.clipboard.writeText(command);
+          const label = button.querySelector("b");
+          if (!label) return;
+          label.textContent = "copied";
+          window.setTimeout(() => { label.textContent = "copy"; }, 1500);
+        });
+      }
+    </script>
+  </body>
+</html>
