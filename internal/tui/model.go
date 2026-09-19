@@ -35,21 +35,22 @@ const (
 )
 
 type Model struct {
-	deps        Dependencies
-	docs        []domain.Document
-	cursor      int
-	width       int
-	height      int
-	mode        mode
-	input       string
-	message     string
-	busy        bool
-	frame       int
-	settings    config.Config
-	settingRow  int
-	models      []provider.Model
-	modelCursor int
-	modelQuery  string
+	deps                  Dependencies
+	docs                  []domain.Document
+	cursor                int
+	width                 int
+	height                int
+	mode                  mode
+	input                 string
+	message               string
+	busy                  bool
+	refreshingAfterImport bool
+	frame                 int
+	settings              config.Config
+	settingRow            int
+	models                []provider.Model
+	modelCursor           int
+	modelQuery            string
 }
 
 type loadedMsg struct {
@@ -81,9 +82,12 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.docs = msg.docs
 		if msg.err != nil {
 			m.message = msg.err.Error()
+		} else if m.refreshingAfterImport {
+			m.message = fmt.Sprintf("%d document%s in library", len(m.docs), plural(len(m.docs)))
 		} else if m.message == "Loading library…" {
 			m.message = ""
 		}
+		m.refreshingAfterImport = false
 		if m.cursor >= len(m.docs) && m.cursor > 0 {
 			m.cursor = len(m.docs) - 1
 		}
@@ -98,6 +102,7 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.message = fmt.Sprintf("%d document%s imported", msg.count, plural(msg.count))
+		m.refreshingAfterImport = true
 		return m, m.loadDocuments()
 	case modelsMsg:
 		m.busy = false

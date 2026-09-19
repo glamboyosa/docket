@@ -144,19 +144,23 @@ func TestAddedMessageReportsFolderCount(t *testing.T) {
 	}
 }
 
-func TestLibraryRefreshPreservesImportResult(t *testing.T) {
+func TestLibraryRefreshShowsUpdatedDocumentCount(t *testing.T) {
 	t.Parallel()
 	m := New(Dependencies{Config: config.Config{Provider: "openai", Model: "test-model"}})
 	m.width, m.height = 100, 28
+	m.docs = []domain.Document{{OriginalName: "lease.pdf", Category: "housing"}}
 	updated, _ := m.Update(addedMsg{count: 1})
 	m = updated.(Model)
-	updated, _ = m.Update(loadedMsg{docs: []domain.Document{{OriginalName: "receipt.png", Category: "receipts"}}})
+	updated, _ = m.Update(loadedMsg{docs: []domain.Document{
+		{OriginalName: "receipt.png", Category: "receipts"},
+		{OriginalName: "lease.pdf", Category: "housing"},
+	}})
 	m = updated.(Model)
-	if message := m.message; message != "1 document imported" {
+	if message := m.message; message != "2 documents in library" {
 		t.Fatalf("message = %q", message)
 	}
 	view := m.View()
-	for _, value := range []string{"1 document imported", "enter details", "a add", "s models"} {
+	for _, value := range []string{"DOCUMENTS  2", "2 documents in library", "enter details", "a add", "s models"} {
 		if !strings.Contains(view, value) {
 			t.Fatalf("view does not contain %q", value)
 		}
