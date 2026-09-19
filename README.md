@@ -76,7 +76,7 @@ docket auth set typesafe
 docket auth set openrouter
 ```
 
-Keys are read without echoing and stored in the operating system keychain. Environment variables can be used instead:
+Keys are read without echoing and stored in the operating system keychain under the `docket` service. They are never written to `config.json` or SQLite. Environment variables take precedence over the keychain and can be used instead:
 
 | Service | Environment variable |
 | --- | --- |
@@ -173,19 +173,39 @@ Docket accepts files up to 25 MB:
 
 Jev classifies documents into `tax`, `legal`, `financial`, `medical`, `identity`, `insurance`, `employment`, `education`, `housing`, `receipts`, `correspondence`, or `other`. Low-confidence classifications are marked for review. Jev's results are triage signals, so check the document itself for exact dates and obligations.
 
-## Files and network access
+## Local data and credentials
 
-| Resource | Behavior |
+Docket stores application data in `~/Library/Application Support/docket` on macOS, `${XDG_CONFIG_HOME:-~/.config}/docket` on Linux, or `%AppData%\docket` on Windows. Set `DOCKET_HOME` to use a different directory.
+
+| Local resource | What it contains |
 | --- | --- |
-| Source document | Read to make a copy; never moved, renamed, or edited |
-| Managed library | `~/Documents/Docket` by default; change with `docket config library <path>` |
-| SQLite index and configuration | `~/Library/Application Support/docket` on macOS, `${XDG_CONFIG_HOME:-~/.config}/docket` on Linux, or `%AppData%\docket` on Windows |
-| Credentials | Operating system keychain under the `docket` service, unless supplied by environment variable |
-| OpenAI or OpenRouter | Receives PDFs and images for transcription and supplies its live model catalog |
-| TypeSafe | Receives extracted document text for Jev classification |
-| Models.dev | Supplies capability and release metadata when listing models |
+| `config.json` | The selected extraction provider, model ID, and managed library path. It contains no API keys or document text. |
+| `docket.db` | Document name, SHA-256 hash, source and managed-copy paths, processing status, extraction provider and model, Jev category probabilities and confidence, sensitivity, urgency, action probability, review flag, errors, and timestamps. It contains no API keys or extracted document text. |
+| OS keychain | The TypeSafe, OpenRouter, and OpenAI keys saved with `docket auth set`, under the `docket` service. |
+| Managed library | Copies of imported documents, filed by Jev category. The default path is `~/Documents/Docket`. |
 
-Extracted text is not stored. The SQLite index contains file paths, hashes, provider and model identifiers, classification results, status, and errors.
+The configuration file is ordinary local JSON. A default OpenRouter configuration looks like this:
+
+```json
+{
+  "provider": "openrouter",
+  "model": "openrouter/auto",
+  "library_path": "/Users/you/Documents/Docket"
+}
+```
+
+Docket creates its data directory with user-only permissions and writes `config.json` with mode `0600` where the operating system supports Unix file modes. Credentials supplied through environment variables are not copied into the keychain.
+
+## Network access
+
+| Service | Data sent | Result |
+| --- | --- | --- |
+| OpenAI or OpenRouter | The PDF or image bytes encoded as a data URL and a transcription instruction. PDF requests include the filename. Plain-text and Markdown files skip this request. | Extracted text, held in memory and not stored by Docket |
+| TypeSafe | The extracted text, the four Jev questions and their criteria, and the `jev-latest` model identifier | Category probabilities and confidence, sensitivity and urgency scores, score confidence, and action probability. Docket stores the classification results in SQLite. |
+| OpenAI or OpenRouter model catalog | A request to list available models. OpenAI catalog requests use the configured OpenAI key. No document is sent. | Model identifiers and capability metadata |
+| Models.dev | A request for public model capability and release metadata. No document or API key is sent. | Public model metadata used to filter the provider catalog |
+
+Extracted text exists in memory long enough to send it to Jev. Docket does not write it to `config.json`, SQLite, or a separate text file. The source document is read to make the managed copy but is never moved, renamed, or edited.
 
 ## Remove Docket
 
