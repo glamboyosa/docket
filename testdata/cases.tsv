@@ -1,11 +1,11 @@
 # path	expected categories
-documents/synthetic/lease-notice.md	housing|legal
-documents/synthetic/tuition-statement.txt	education|financial
+documents/synthetic/lease-notice.md	housing
+documents/synthetic/tuition-statement.txt	education
 documents/generated/receipt.png	receipts
 documents/generated/lab-results.png	medical
 documents/generated/receipt.jpg	receipts
 documents/generated/lab-results.webp	medical
 documents/downloaded/form-w9.pdf	tax
-documents/downloaded/form-i9.pdf	employment|identity
-documents/downloaded/closing-disclosure.pdf	housing|financial
-documents/downloaded/cms-1500-sample.pdf	medical|insurance
+documents/downloaded/form-i9.pdf	identity
+documents/downloaded/closing-disclosure.pdf	financial
+documents/downloaded/cms-1500-sample.pdf	insurance
