@@ -262,7 +262,7 @@ func (m Model) View() string {
 	case modelPicker:
 		return m.modelsView()
 	case help:
-		return m.panel("Keyboard", "a  add document\n/  filter documents\ns  provider settings\nr  refresh library\n?  this help\nq  quit\n\nOriginal files are never moved or changed.")
+		return m.panel("Keyboard", "a  add files or folder\n/  filter documents\ns  provider settings\nr  refresh library\n?  this help\nq  quit\n\nOriginal files are never moved or changed.")
 	default:
 		return base
 	}

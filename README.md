@@ -125,6 +125,8 @@ docket auth forget openai
 
 Then remove the `docket` binary from the Go binary directory. Delete the Docket user-config directory to remove the SQLite index and configuration. Delete the managed library separately if its copied documents are no longer needed. Source documents are not affected.
 
+If credentials were supplied through environment variables, unset them in the shell or profile where they were configured.
+
 ## Development
 
 Run the Go checks:
