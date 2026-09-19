@@ -1,4 +1,5 @@
 .DS_Store
+.env
 /docket
 /site/dist/
 /site/node_modules/
