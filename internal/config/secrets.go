@@ -9,7 +9,7 @@ import (
 )
 
 var secretEnv = map[string]string{
-	"typesafe":  "TYPESAFE_API_KEY",
+	"typesafe":   "TYPESAFE_API_KEY",
 	"openrouter": "OPENROUTER_API_KEY",
 	"openai":     "OPENAI_API_KEY",
 }
