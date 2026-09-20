@@ -150,6 +150,7 @@ kbd { width: 32px; height: 32px; display: grid; place-items: center; background:
 .key-list span { color: var(--muted); font-size: .82rem; line-height: 1.4; }
 
 .roadmap { margin-bottom: 118px; background: var(--sheet); border: 1px solid var(--rule-dark); }
+.roadmap > header a { text-underline-offset: 3px; }
 .roadmap-grid { display: grid; grid-template-columns: repeat(3, 1fr); }
 .roadmap-grid > div { min-height: 260px; padding: 28px 24px; border-right: 1px solid var(--rule); }
 .roadmap-grid > div:last-child { border-right: 0; }
@@ -163,7 +164,7 @@ kbd { width: 32px; height: 32px; display: grid; place-items: center; background:
 .site-footer a { text-underline-offset: 4px; }
 
 @media (hover: hover) and (pointer: fine) {
-  nav a:hover, .fine-print a:hover, .site-footer a:hover { color: var(--red-dark); }
+  nav a:hover, .fine-print a:hover, .roadmap > header a:hover, .site-footer a:hover { color: var(--red-dark); }
   .command:hover b { color: #ffd1c4; }
   .record-tabs button:hover { background: #ebe6da; }
 }

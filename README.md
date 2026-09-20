@@ -2,6 +2,8 @@
 
 Docket is a Go terminal document classifier built around [TypeSafe's Jev](https://typesafe.ai/blog/introducing-system-one-models-and-jev). It copies a document into a local library, extracts its text, asks Jev for typed classification decisions, and files the copy without moving or editing the source.
 
+[Website](https://docket.glamboyosa.xyz/) · [Roadmap](ROADMAP.md)
+
 ## How Docket uses Jev
 
 [Jev](https://docs.typesafe.ai/concepts/system-one) is TypeSafe's first System One model. Instead of generating a paragraph and making the application parse it, Jev answers bounded questions with typed values, probabilities, and confidence. Docket asks Jev four questions about every document:
