@@ -160,11 +160,12 @@ docket config model <model-id>
 | `o` | Choose one or more files with the operating system's graphical picker |
 | `O` | Choose a folder with the operating system's graphical picker |
 | `p` | Paste, type, or drag a path while Docket's file browser is open |
-| `Backspace` | Open the parent folder in Docket's file browser |
+| `←` / `Backspace` | Open the parent folder in Docket's file browser |
+| `→` | Open the highlighted folder in Docket's file browser |
 | `/` | Filter documents by filename or category |
 | `↑` / `k` | Move to the previous document or option |
 | `↓` / `j` | Move to the next document or option |
-| `Enter` | Inspect the selected document and its Jev guidance |
+| `Enter` | Inspect a library document, open a folder, or import a file |
 | `s` | Open provider and model settings |
 | `Enter` / `Ctrl+L` | Browse live compatible models while settings are open |
 | `Ctrl+S` | Save a manually entered model ID |
