@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -12,6 +15,7 @@ import (
 
 	"github.com/glamboyosa/docket/internal/config"
 	"github.com/glamboyosa/docket/internal/domain"
+	"github.com/glamboyosa/docket/internal/files"
 	"github.com/glamboyosa/docket/internal/provider"
 )
 
@@ -21,6 +25,7 @@ type Dependencies struct {
 	Add        func(context.Context, string) (int, error)
 	PickFiles  func(context.Context) ([]string, error)
 	PickFolder func(context.Context) (string, error)
+	BrowsePath string
 	SaveConfig func(config.Config) error
 	Models     func(context.Context, string) ([]provider.Model, error)
 }
@@ -30,6 +35,7 @@ type mode int
 const (
 	browse mode = iota
 	addPath
+	browseFiles
 	search
 	settings
 	modelPicker
@@ -54,6 +60,15 @@ type Model struct {
 	models                []provider.Model
 	modelCursor           int
 	modelQuery            string
+	browserPath           string
+	browserEntries        []fileEntry
+	browserCursor         int
+}
+
+type fileEntry struct {
+	name  string
+	path  string
+	isDir bool
 }
 
 type loadedMsg struct {
@@ -68,6 +83,11 @@ type addedMsg struct {
 type pickedMsg struct {
 	paths []string
 	err   error
+}
+type directoryMsg struct {
+	path    string
+	entries []fileEntry
+	err     error
 }
 type tickMsg time.Time
 type modelsMsg struct {
@@ -124,6 +144,16 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.busy = true
 		m.message = fmt.Sprintf("Importing %d document%s…", len(msg.paths), plural(len(msg.paths)))
 		return m, tea.Batch(m.addDocuments(msg.paths), tick())
+	case directoryMsg:
+		m.busy = false
+		if msg.err != nil {
+			m.message = msg.err.Error()
+			return m, nil
+		}
+		m.browserPath = msg.path
+		m.browserEntries = msg.entries
+		m.browserCursor = 0
+		m.message = ""
 	case modelsMsg:
 		m.busy = false
 		if msg.err != nil {
@@ -152,6 +182,8 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.mode {
 	case addPath, search:
 		return m.handleInput(key)
+	case browseFiles:
+		return m.handleFileBrowser(key)
 	case settings:
 		return m.handleSettings(key)
 	case modelPicker:
@@ -179,7 +211,17 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.cursor++
 		}
 	case "a":
-		m.mode, m.input, m.message = addPath, "", ""
+		path := m.deps.BrowsePath
+		if path == "" {
+			var err error
+			path, err = os.UserHomeDir()
+			if err != nil {
+				m.message = fmt.Sprintf("Find home folder: %v", err)
+				return m, nil
+			}
+		}
+		m.mode, m.busy, m.message = browseFiles, true, "Opening file browser…"
+		return m, m.readDirectory(path)
 	case "o":
 		m.busy, m.message = true, "Opening file picker…"
 		return m, tea.Batch(m.pickFiles(), tick())
@@ -202,10 +244,55 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m Model) handleFileBrowser(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch key.String() {
+	case "esc":
+		m.mode, m.message = browse, ""
+	case "up", "k":
+		if m.browserCursor > 0 {
+			m.browserCursor--
+		}
+	case "down", "j":
+		if m.browserCursor < len(m.browserEntries)-1 {
+			m.browserCursor++
+		}
+	case "backspace", "left":
+		parent := filepath.Dir(m.browserPath)
+		if parent != m.browserPath {
+			m.busy, m.message = true, "Opening parent folder…"
+			return m, m.readDirectory(parent)
+		}
+	case "enter":
+		if len(m.browserEntries) == 0 {
+			return m, nil
+		}
+		entry := m.browserEntries[m.browserCursor]
+		if entry.isDir {
+			m.busy, m.message = true, "Opening "+entry.name+"…"
+			return m, m.readDirectory(entry.path)
+		}
+		m.mode, m.busy, m.message = browse, true, "Importing document…"
+		return m, tea.Batch(m.addDocuments([]string{entry.path}), tick())
+	case "o":
+		m.mode, m.busy, m.message = browse, true, "Opening system picker…"
+		return m, tea.Batch(m.pickFiles(), tick())
+	case "O":
+		m.mode, m.busy, m.message = browse, true, "Opening system folder picker…"
+		return m, tea.Batch(m.pickFolder(), tick())
+	case "p":
+		m.mode, m.input, m.message = addPath, "", ""
+	}
+	return m, nil
+}
+
 func (m Model) handleInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch key.String() {
 	case "esc":
-		m.mode, m.input = browse, ""
+		if m.mode == addPath {
+			m.mode, m.input = browseFiles, ""
+		} else {
+			m.mode, m.input = browse, ""
+		}
 	case "enter":
 		if m.mode == search {
 			m.mode = browse
@@ -308,7 +395,9 @@ func (m Model) View() string {
 	base := m.mainView()
 	switch m.mode {
 	case addPath:
-		return m.panel("Add documents", "Paste or drag a file or folder path here.\n\n› "+m.input+"█\n\n⌘V paste   drag from Finder   enter import   esc cancel")
+		return m.panel("Add by path", "Paste, type, or drag a file or folder path here.\n\n› "+m.input+"█\n\n⌘V paste   enter import   esc back")
+	case browseFiles:
+		return m.fileBrowserView()
 	case settings:
 		return m.settingsView()
 	case modelPicker:
@@ -316,7 +405,7 @@ func (m Model) View() string {
 	case inspectDocument:
 		return m.panel("Document details", m.inspectView(min(max(38, m.width-16), 72)))
 	case help:
-		return m.panel("Keyboard", "↑/↓ or j/k  select a document\nenter        inspect selected document\no            choose files\nO            choose a folder\na            add by path\n/            filter documents\ns            provider and models\nr            refresh library\n?            this help\nq            quit\n\nSelected guidance appears on the right when space allows.\nOriginal files are never moved or changed.")
+		return m.panel("Keyboard", "↑/↓ or j/k  select a document\nenter        inspect selected document\na            browse files in Docket\no            open the system file picker\nO            choose a folder with the system picker\n/            filter documents\ns            provider and models\nr            refresh library\n?            this help\nq            quit\n\nInside the file browser, press p to paste or drag a path.\nOriginal files are never moved or changed.")
 	default:
 		return base
 	}
@@ -345,7 +434,7 @@ func (m Model) mainView() string {
 		right := detailStyle.Width(rightWidth).Height(bodyHeight).Render(m.detailView(rightWidth-4, bodyHeight-2))
 		body = lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	}
-	guide := mutedStyle.Render(truncate("↑/↓ select   enter details   o pick   a add   / filter   s models   ? help   q quit", innerWidth))
+	guide := mutedStyle.Render(truncate("↑/↓ select   enter details   a browse   o system picker   / filter   s models   ? help   q quit", innerWidth))
 	footer := guide
 	if status != "" {
 		footer = truncate(status, innerWidth) + "\n" + guide
@@ -360,7 +449,7 @@ func (m Model) listView(width, height int) string {
 		query = accentStyle.Render("/ "+m.input+"█") + "\n\n"
 	}
 	if len(docs) == 0 {
-		return query + mutedStyle.Render("No documents yet.\n\nPress o to choose files or a to enter a path.")
+		return query + mutedStyle.Render("No documents yet.\n\nPress a to browse files or o for the system picker.")
 	}
 	lines := []string{sectionStyle.Render(fmt.Sprintf("DOCUMENTS  %d", len(docs))), ""}
 	available := max(1, height-3)
@@ -382,6 +471,48 @@ func (m Model) listView(width, height int) string {
 		lines = append(lines, line)
 	}
 	return query + strings.Join(lines, "\n")
+}
+
+func (m Model) fileBrowserView() string {
+	contentWidth := max(24, min(68, m.width-20))
+	lines := []string{
+		sectionStyle.Render("BROWSE IN DOCKET"),
+		mutedStyle.Render(truncate(displayPath(m.browserPath), contentWidth)),
+		"",
+	}
+	if m.busy {
+		lines = append(lines, accentStyle.Render(m.message))
+	} else if m.message != "" {
+		lines = append(lines, errorStyle.Render(truncate(m.message, contentWidth)))
+	} else if len(m.browserEntries) == 0 {
+		lines = append(lines, mutedStyle.Render("No supported documents in this folder."))
+	} else {
+		limit := max(3, m.height-14)
+		start := 0
+		if m.browserCursor >= limit {
+			start = m.browserCursor - limit + 1
+		}
+		for index := start; index < len(m.browserEntries) && index < start+limit; index++ {
+			entry := m.browserEntries[index]
+			mark := "·"
+			if entry.isDir {
+				mark = "▸"
+			}
+			line := truncate(mark+" "+entry.name, contentWidth-2)
+			if index == m.browserCursor {
+				line = selectedStyle.Render("› " + line)
+			} else {
+				line = "  " + line
+			}
+			lines = append(lines, line)
+		}
+	}
+	lines = append(lines, "",
+		mutedStyle.Render("↑/↓ move   enter open/import   backspace parent"),
+		mutedStyle.Render("o system files   O system folder"),
+		mutedStyle.Render("p paste/drag path   esc cancel"),
+	)
+	return m.panel("Add documents", strings.Join(lines, "\n"))
 }
 
 func (m Model) detailView(width, height int) string {
@@ -534,6 +665,36 @@ func (m Model) loadDocuments() tea.Cmd {
 	}
 }
 
+func (m Model) readDirectory(path string) tea.Cmd {
+	return func() tea.Msg {
+		path, err := filepath.Abs(path)
+		if err != nil {
+			return directoryMsg{err: fmt.Errorf("open file browser: %w", err)}
+		}
+		items, err := os.ReadDir(path)
+		if err != nil {
+			return directoryMsg{path: path, err: fmt.Errorf("open %s: %w", path, err)}
+		}
+		entries := make([]fileEntry, 0, len(items))
+		for _, item := range items {
+			if strings.HasPrefix(item.Name(), ".") || item.Type()&os.ModeSymlink != 0 {
+				continue
+			}
+			if !item.IsDir() && !files.Supported(item.Name()) {
+				continue
+			}
+			entries = append(entries, fileEntry{name: item.Name(), path: filepath.Join(path, item.Name()), isDir: item.IsDir()})
+		}
+		sort.Slice(entries, func(i, j int) bool {
+			if entries[i].isDir != entries[j].isDir {
+				return entries[i].isDir
+			}
+			return strings.ToLower(entries[i].name) < strings.ToLower(entries[j].name)
+		})
+		return directoryMsg{path: path, entries: entries}
+	}
+}
+
 func (m Model) addDocuments(paths []string) tea.Cmd {
 	return func() tea.Msg {
 		count := 0
@@ -589,6 +750,17 @@ func cleanPath(value string) string {
 	}
 	value = strings.Trim(value, "'\"")
 	return strings.ReplaceAll(value, "\\ ", " ")
+}
+
+func displayPath(path string) string {
+	home, err := os.UserHomeDir()
+	if err == nil && path == home {
+		return "~"
+	}
+	if err == nil && strings.HasPrefix(path, home+string(filepath.Separator)) {
+		return "~" + strings.TrimPrefix(path, home)
+	}
+	return path
 }
 
 func statusMark(doc domain.Document) string {

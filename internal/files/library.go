@@ -41,7 +41,7 @@ func Discover(path string) ([]string, error) {
 		if entry.Type()&os.ModeSymlink != 0 {
 			return nil
 		}
-		if entry.Type().IsRegular() && supportedExtension(candidate) {
+		if entry.Type().IsRegular() && Supported(candidate) {
 			paths = append(paths, candidate)
 		}
 		return nil
@@ -67,7 +67,7 @@ func (l Library) Import(source string) (path, hash string, err error) {
 		return "", "", fmt.Errorf("document exceeds the 25 MB limit")
 	}
 	ext := strings.ToLower(filepath.Ext(source))
-	if !supportedExtension(source) {
+	if !Supported(source) {
 		return "", "", fmt.Errorf("unsupported document type %q", ext)
 	}
 
@@ -105,7 +105,7 @@ func (l Library) Import(source string) (path, hash string, err error) {
 	return path, hash, nil
 }
 
-func supportedExtension(path string) bool {
+func Supported(path string) bool {
 	return supported[strings.ToLower(filepath.Ext(path))]
 }
 

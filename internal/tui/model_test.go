@@ -2,6 +2,8 @@ package tui
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -27,7 +29,7 @@ func TestLibraryViewShowsClassification(t *testing.T) {
 		"rental-agreement.pdf", "HOUSING", "94%",
 		"JEV CLASSIFICATION", "JEV OUTPUT", "0.8 / 3 · Personal", "1.6 / 3 · Time-sensitive", "Needs action", "82%",
 		"DOCKET GUIDANCE", "Keep private", "Likely required · 82%", "Act soon; check exact deadline",
-		"housing · soon", "↑/↓ select", "a add", "s models",
+		"housing · soon", "↑/↓ select", "a browse", "s models",
 	} {
 		if !strings.Contains(view, value) {
 			t.Fatalf("view does not contain %q", value)
@@ -115,6 +117,10 @@ func TestAddFlowCleansDraggedPath(t *testing.T) {
 	})
 	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
 	m = updated.(Model)
+	updated, _ = m.Update(directoryMsg{path: "/tmp", entries: []fileEntry{}})
+	m = updated.(Model)
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	m = updated.(Model)
 	for _, value := range []rune("[/tmp/Test\\ File.pdf]") {
 		updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{value}})
 		m = updated.(Model)
@@ -133,6 +139,98 @@ func TestAddFlowCleansDraggedPath(t *testing.T) {
 	}
 	if added != "/tmp/Test File.pdf" {
 		t.Fatalf("added path = %q", added)
+	}
+}
+
+func TestAddOpensInTerminalFileBrowser(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "receipts"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "lease.pdf"), []byte("lease"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "archive.zip"), []byte("archive"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	m := New(Dependencies{
+		Config:     config.Config{Provider: "openai", Model: "test-model"},
+		BrowsePath: root,
+	})
+	m.width, m.height = 100, 28
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	m = updated.(Model)
+	if m.mode != browseFiles || !m.busy || cmd == nil {
+		t.Fatalf("mode = %v, busy = %v, cmd = %v", m.mode, m.busy, cmd)
+	}
+
+	updated, _ = m.Update(cmd())
+	m = updated.(Model)
+	view := m.View()
+	for _, value := range []string{"BROWSE IN DOCKET", "receipts", "lease.pdf", "enter open/import", "o system files", "O system folder", "p paste/drag path"} {
+		if !strings.Contains(view, value) {
+			t.Fatalf("file browser does not contain %q: %s", value, view)
+		}
+	}
+	if strings.Contains(view, "archive.zip") {
+		t.Fatalf("file browser includes unsupported file: %s", view)
+	}
+}
+
+func TestFileBrowserImportsHighlightedFile(t *testing.T) {
+	t.Parallel()
+	var added string
+	m := New(Dependencies{
+		Config: config.Config{Provider: "openai", Model: "test-model"},
+		Add: func(_ context.Context, path string) (int, error) {
+			added = path
+			return 1, nil
+		},
+	})
+	m.mode = browseFiles
+	m.browserEntries = []fileEntry{{name: "lease.pdf", path: "/tmp/lease.pdf"}}
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+	if m.mode != browse || !m.busy || cmd == nil {
+		t.Fatalf("mode = %v, busy = %v, cmd = %v", m.mode, m.busy, cmd)
+	}
+	commands := cmd().(tea.BatchMsg)
+	updated, _ = m.Update(commands[0]())
+	m = updated.(Model)
+	if added != "/tmp/lease.pdf" || m.message != "1 document imported" {
+		t.Fatalf("added = %q, message = %q", added, m.message)
+	}
+}
+
+func TestFileBrowserOpensSelectedDirectory(t *testing.T) {
+	t.Parallel()
+	m := New(Dependencies{Config: config.Config{Provider: "openai", Model: "test-model"}})
+	m.mode = browseFiles
+	m.browserEntries = []fileEntry{{name: "receipts", path: "/tmp/receipts", isDir: true}}
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+	if m.mode != browseFiles || !m.busy || cmd == nil {
+		t.Fatalf("mode = %v, busy = %v, cmd = %v", m.mode, m.busy, cmd)
+	}
+	message := cmd()
+	if got := message.(directoryMsg).path; got != "/tmp/receipts" {
+		t.Fatalf("directory path = %q", got)
+	}
+}
+
+func TestFileBrowserShowsDirectoryErrors(t *testing.T) {
+	t.Parallel()
+	m := New(Dependencies{Config: config.Config{Provider: "openai", Model: "test-model"}})
+	m.width, m.height, m.mode = 100, 28, browseFiles
+	m.browserPath = "/tmp"
+	updated, _ := m.Update(directoryMsg{err: os.ErrPermission})
+	view := updated.(Model).View()
+	if !strings.Contains(view, "permission denied") {
+		t.Fatalf("file browser does not show the directory error: %s", view)
 	}
 }
 
@@ -236,7 +334,7 @@ func TestLibraryRefreshShowsUpdatedDocumentCount(t *testing.T) {
 		t.Fatalf("message = %q", message)
 	}
 	view := m.View()
-	for _, value := range []string{"DOCUMENTS  2", "2 documents in library", "enter details", "a add", "s models"} {
+	for _, value := range []string{"DOCUMENTS  2", "2 documents in library", "enter details", "a browse", "s models"} {
 		if !strings.Contains(view, value) {
 			t.Fatalf("view does not contain %q", value)
 		}
