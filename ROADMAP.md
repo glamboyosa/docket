@@ -5,6 +5,7 @@ Docket's next work is focused on making document imports easier without weakenin
 ## Available now
 
 - [x] Import files, folders, or pasted text from the terminal.
+- [x] Browse supported documents inside the terminal interface.
 - [x] Choose files or a folder with the operating system's graphical picker.
 - [x] Read plain text and Markdown locally.
 - [x] Read PDFs and images with a user-selected OpenAI or OpenRouter model.

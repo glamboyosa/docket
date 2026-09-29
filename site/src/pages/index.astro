@@ -37,10 +37,10 @@ const installCommand = "curl -fsSL https://docket.glamboyosa.xyz/install.sh | sh
     </header>
 
     <main>
-      <a class="release-banner wrap" href="https://github.com/glamboyosa/docket/releases/tag/v0.2.0" aria-label="Read the Docket v0.2.0 release notes">
-        <span>NEW · v0.2.0</span>
-        <strong>Pick files without pasting paths.</strong>
-        <small>Press O to open Finder, Explorer, or your Linux file chooser.</small>
+      <a class="release-banner wrap" href="https://github.com/glamboyosa/docket/releases/tag/v0.3.0" aria-label="Read the Docket v0.3.0 release notes">
+        <span>NEW · v0.3.0</span>
+        <strong>Browse files without leaving Docket.</strong>
+        <small>Press A for the in-terminal browser, or O for your system picker.</small>
         <b aria-hidden="true">↗</b>
       </a>
 
@@ -84,7 +84,7 @@ const installCommand = "curl -fsSL https://docket.glamboyosa.xyz/install.sh | sh
               <p>~/Documents/Docket/<strong>housing/</strong></p>
             </div>
           </div>
-          <div class="frame-bottom"><span>↑↓ SELECT</span><span>↵ DETAILS</span><span>O PICK</span><span>A PATH</span><span>S MODELS</span><span>? HELP</span></div>
+          <div class="frame-bottom"><span>↑↓ SELECT</span><span>↵ DETAILS</span><span>A BROWSE</span><span>O SYSTEM</span><span>S MODELS</span><span>? HELP</span></div>
           <span class="file-tab">HOUSING</span>
         </div>
       </section>
@@ -163,8 +163,9 @@ const installCommand = "curl -fsSL https://docket.glamboyosa.xyz/install.sh | sh
           <h2>Choose a file.<br />Stay in the flow.</h2>
         </div>
         <div class="key-list">
-          <div><kbd>O</kbd><span>Choose files with your system picker; use Shift–O for a folder</span></div>
-          <div><kbd>A</kbd><span>Import by typing, pasting, or dragging a path</span></div>
+          <div><kbd>A</kbd><span>Browse folders and choose a document without leaving Docket</span></div>
+          <div><kbd>O</kbd><span>Use Finder, Explorer, or your Linux file chooser instead</span></div>
+          <div><kbd>P</kbd><span>Paste, type, or drag a path from the in-terminal browser</span></div>
           <div><kbd>/</kbd><span>Filter by filename or category</span></div>
           <div><kbd>S</kbd><span>Switch provider or choose a live compatible model</span></div>
           <div><kbd>?</kbd><span>See every shortcut</span></div>
@@ -174,8 +175,8 @@ const installCommand = "curl -fsSL https://docket.glamboyosa.xyz/install.sh | sh
       <section class="roadmap wrap" id="roadmap">
         <header><span>FILING PLAN</span><a href="https://github.com/glamboyosa/docket/blob/main/ROADMAP.md">FULL ROADMAP ↗</a></header>
         <div class="roadmap-grid">
-          <div><small>AVAILABLE</small><strong>Terminal paths and pasted text</strong><p>Use OpenAI or OpenRouter to read documents, then Jev to classify them. Docket keeps the results and copied files on your machine.</p></div>
-          <div><small>AVAILABLE · v0.2.0</small><strong>Graphical file picker</strong><p>Choose files or a folder with Finder, Explorer, Zenity, or KDialog. Docket still imports copies and leaves the originals untouched.</p></div>
+          <div><small>AVAILABLE · v0.3.0</small><strong>In-terminal file browser</strong><p>Move through folders and import a supported document without leaving Docket.</p></div>
+          <div><small>AVAILABLE · v0.2.0</small><strong>System file picker</strong><p>Choose files or a folder with Finder, Explorer, Zenity, or KDialog.</p></div>
           <div><small>NEXT DRAWER</small><strong>Watched folders</strong><p>Opt in to a folder and let Docket import new supported documents as they arrive.</p></div>
         </div>
       </section>

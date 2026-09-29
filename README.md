@@ -156,9 +156,11 @@ docket config model <model-id>
 
 | Key | Action |
 | --- | --- |
+| `a` | Browse supported documents inside Docket |
 | `o` | Choose one or more files with the operating system's graphical picker |
 | `O` | Choose a folder with the operating system's graphical picker |
-| `a` | Enter a file or folder path to import |
+| `p` | Paste, type, or drag a path while Docket's file browser is open |
+| `Backspace` | Open the parent folder in Docket's file browser |
 | `/` | Filter documents by filename or category |
 | `↑` / `k` | Move to the previous document or option |
 | `↓` / `j` | Move to the next document or option |
@@ -166,7 +168,7 @@ docket config model <model-id>
 | `s` | Open provider and model settings |
 | `Enter` / `Ctrl+L` | Browse live compatible models while settings are open |
 | `Ctrl+S` | Save a manually entered model ID |
-| `Cmd+V` | Paste a file or folder path in the add-documents panel on macOS |
+| `Cmd+V` | Paste a file or folder path after pressing `p` on macOS |
 | `r` | Refresh the document library |
 | `?` | Open keyboard help |
 | `Esc` | Close the current panel or cancel input |
