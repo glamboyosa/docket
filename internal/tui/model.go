@@ -63,6 +63,9 @@ type Model struct {
 	browserPath           string
 	browserEntries        []fileEntry
 	browserCursor         int
+	browserLoaded         bool
+	browserLoading        bool
+	browserErr            error
 }
 
 type fileEntry struct {
@@ -96,10 +99,23 @@ type modelsMsg struct {
 }
 
 func New(deps Dependencies) Model {
-	return Model{deps: deps, settings: deps.Config, message: "Loading library…"}
+	browserPath := deps.BrowsePath
+	var browserErr error
+	if browserPath == "" {
+		browserPath, browserErr = os.UserHomeDir()
+	}
+	return Model{
+		deps: deps, settings: deps.Config, message: "Loading library…",
+		browserPath: browserPath, browserLoading: browserErr == nil && browserPath != "", browserErr: browserErr,
+	}
 }
 
-func (m Model) Init() tea.Cmd { return m.loadDocuments() }
+func (m Model) Init() tea.Cmd {
+	if m.browserErr != nil || m.browserPath == "" {
+		return m.loadDocuments()
+	}
+	return tea.Batch(m.loadDocuments(), m.readDirectory(m.browserPath))
+}
 
 func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := message.(type) {
@@ -145,15 +161,23 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.message = fmt.Sprintf("Importing %d document%s…", len(msg.paths), plural(len(msg.paths)))
 		return m, tea.Batch(m.addDocuments(msg.paths), tick())
 	case directoryMsg:
-		m.busy = false
+		m.browserLoaded = true
+		m.browserLoading = false
+		m.browserErr = msg.err
 		if msg.err != nil {
-			m.message = msg.err.Error()
+			if m.mode == browseFiles {
+				m.busy = false
+				m.message = msg.err.Error()
+			}
 			return m, nil
 		}
 		m.browserPath = msg.path
 		m.browserEntries = msg.entries
 		m.browserCursor = 0
-		m.message = ""
+		if m.mode == browseFiles {
+			m.busy = false
+			m.message = ""
+		}
 	case modelsMsg:
 		m.busy = false
 		if msg.err != nil {
@@ -211,17 +235,21 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.cursor++
 		}
 	case "a":
-		path := m.deps.BrowsePath
-		if path == "" {
-			var err error
-			path, err = os.UserHomeDir()
-			if err != nil {
-				m.message = fmt.Sprintf("Find home folder: %v", err)
-				return m, nil
-			}
+		m.mode = browseFiles
+		if m.browserLoaded && m.browserErr == nil {
+			m.message = ""
+			return m, nil
 		}
-		m.mode, m.busy, m.message = browseFiles, true, "Opening file browser…"
-		return m, m.readDirectory(path)
+		if m.browserPath == "" {
+			m.message = fmt.Sprintf("Find home folder: %v", m.browserErr)
+			return m, nil
+		}
+		m.busy, m.message = true, "Opening file browser…"
+		if m.browserLoading {
+			return m, nil
+		}
+		m.browserLoading = true
+		return m, m.readDirectory(m.browserPath)
 	case "o":
 		m.busy, m.message = true, "Opening file picker…"
 		return m, tea.Batch(m.pickFiles(), tick())
@@ -259,8 +287,17 @@ func (m Model) handleFileBrowser(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "backspace", "left":
 		parent := filepath.Dir(m.browserPath)
 		if parent != m.browserPath {
-			m.busy, m.message = true, "Opening parent folder…"
+			m.busy, m.browserLoading, m.message = true, true, "Opening parent folder…"
 			return m, m.readDirectory(parent)
+		}
+	case "right":
+		if len(m.browserEntries) == 0 {
+			return m, nil
+		}
+		entry := m.browserEntries[m.browserCursor]
+		if entry.isDir {
+			m.busy, m.browserLoading, m.message = true, true, "Opening "+entry.name+"…"
+			return m, m.readDirectory(entry.path)
 		}
 	case "enter":
 		if len(m.browserEntries) == 0 {
@@ -268,7 +305,7 @@ func (m Model) handleFileBrowser(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		entry := m.browserEntries[m.browserCursor]
 		if entry.isDir {
-			m.busy, m.message = true, "Opening "+entry.name+"…"
+			m.busy, m.browserLoading, m.message = true, true, "Opening "+entry.name+"…"
 			return m, m.readDirectory(entry.path)
 		}
 		m.mode, m.busy, m.message = browse, true, "Importing document…"
@@ -405,7 +442,7 @@ func (m Model) View() string {
 	case inspectDocument:
 		return m.panel("Document details", m.inspectView(min(max(38, m.width-16), 72)))
 	case help:
-		return m.panel("Keyboard", "↑/↓ or j/k  select a document\nenter        inspect selected document\na            browse files in Docket\no            open the system file picker\nO            choose a folder with the system picker\n/            filter documents\ns            provider and models\nr            refresh library\n?            this help\nq            quit\n\nInside the file browser, press p to paste or drag a path.\nOriginal files are never moved or changed.")
+		return m.panel("Keyboard", "↑/↓ or j/k  select a document\nenter        inspect selected document\na            browse files in Docket\no            open the system file picker\nO            choose a folder with the system picker\n/            filter documents\ns            provider and models\nr            refresh library\n?            this help\nq            quit\n\nInside the file browser, use ←/→ to leave or enter folders.\nPress p to paste or drag a path.\nOriginal files are never moved or changed.")
 	default:
 		return base
 	}
@@ -508,7 +545,8 @@ func (m Model) fileBrowserView() string {
 		}
 	}
 	lines = append(lines, "",
-		mutedStyle.Render("↑/↓ move   enter open/import   backspace parent"),
+		mutedStyle.Render("↑/↓ move   ← parent   → open folder"),
+		mutedStyle.Render("enter open/import   backspace parent"),
 		mutedStyle.Render("o system files   O system folder"),
 		mutedStyle.Render("p paste/drag path   esc cancel"),
 	)

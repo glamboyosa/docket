@@ -159,6 +159,7 @@ func TestAddOpensInTerminalFileBrowser(t *testing.T) {
 		Config:     config.Config{Provider: "openai", Model: "test-model"},
 		BrowsePath: root,
 	})
+	m.browserLoading = false
 	m.width, m.height = 100, 28
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
 	m = updated.(Model)
@@ -176,6 +177,39 @@ func TestAddOpensInTerminalFileBrowser(t *testing.T) {
 	}
 	if strings.Contains(view, "archive.zip") {
 		t.Fatalf("file browser includes unsupported file: %s", view)
+	}
+}
+
+func TestInitPreloadsFileBrowser(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "lease.pdf"), []byte("lease"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	m := New(Dependencies{
+		Config:     config.Config{Provider: "openai", Model: "test-model"},
+		BrowsePath: root,
+		List:       func(context.Context) ([]domain.Document, error) { return nil, nil },
+	})
+	commands, ok := m.Init()().(tea.BatchMsg)
+	if !ok {
+		t.Fatal("expected startup commands to be batched")
+	}
+	for _, command := range commands {
+		if message := command(); message != nil {
+			updated, _ := m.Update(message)
+			m = updated.(Model)
+		}
+	}
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	m = updated.(Model)
+	if m.mode != browseFiles || m.busy || cmd != nil {
+		t.Fatalf("mode = %v, busy = %v, cmd = %v", m.mode, m.busy, cmd)
+	}
+	if len(m.browserEntries) != 1 || m.browserEntries[0].name != "lease.pdf" {
+		t.Fatalf("browser entries = %+v", m.browserEntries)
 	}
 }
 
@@ -212,6 +246,23 @@ func TestFileBrowserOpensSelectedDirectory(t *testing.T) {
 	m.browserEntries = []fileEntry{{name: "receipts", path: "/tmp/receipts", isDir: true}}
 
 	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+	if m.mode != browseFiles || !m.busy || cmd == nil {
+		t.Fatalf("mode = %v, busy = %v, cmd = %v", m.mode, m.busy, cmd)
+	}
+	message := cmd()
+	if got := message.(directoryMsg).path; got != "/tmp/receipts" {
+		t.Fatalf("directory path = %q", got)
+	}
+}
+
+func TestRightArrowOpensSelectedDirectory(t *testing.T) {
+	t.Parallel()
+	m := New(Dependencies{Config: config.Config{Provider: "openai", Model: "test-model"}})
+	m.mode = browseFiles
+	m.browserEntries = []fileEntry{{name: "receipts", path: "/tmp/receipts", isDir: true}}
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRight})
 	m = updated.(Model)
 	if m.mode != browseFiles || !m.busy || cmd == nil {
 		t.Fatalf("mode = %v, busy = %v, cmd = %v", m.mode, m.busy, cmd)
