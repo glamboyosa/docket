@@ -5,6 +5,7 @@ Docket's next work is focused on making document imports easier without weakenin
 ## Available now
 
 - [x] Import files, folders, or pasted text from the terminal.
+- [x] Choose files or a folder with the operating system's graphical picker.
 - [x] Read plain text and Markdown locally.
 - [x] Read PDFs and images with a user-selected OpenAI or OpenRouter model.
 - [x] Use Jev to classify each document and estimate sensitivity, urgency, and whether it needs action.
@@ -15,7 +16,6 @@ Docket's next work is focused on making document imports easier without weakenin
 
 ## Next
 
-- [ ] Add a graphical file picker to the terminal interface. Selected files will use the existing copy-first import flow.
 - [ ] Add opt-in watched folders. Docket will import new supported files while leaving the originals where they are.
 - [ ] Add a PowerShell installer so Windows users can install a release binary without Go.
 

@@ -41,6 +41,13 @@ a { color: inherit; }
 nav { justify-self: end; display: flex; gap: 24px; }
 nav a { color: var(--muted); font-size: .74rem; font-weight: 700; text-underline-offset: 4px; }
 
+.release-banner { min-height: 52px; display: grid; grid-template-columns: auto auto 1fr auto; align-items: center; gap: 18px; color: var(--sheet); background: var(--red-dark); text-decoration: none; }
+.release-banner span, .release-banner small { font: 650 .63rem/1.3 var(--font-mono); }
+.release-banner span { padding-left: 18px; letter-spacing: .06em; }
+.release-banner strong { font-size: .82rem; letter-spacing: -.01em; }
+.release-banner small { color: #e9c5bb; }
+.release-banner b { padding-right: 18px; font: 600 .8rem/1 var(--font-mono); }
+
 .hero { padding-block: 88px 94px; display: grid; grid-template-columns: .86fr 1.14fr; align-items: center; gap: 78px; }
 .hero-copy, .product-frame { min-width: 0; }
 .kicker { margin: 0 0 18px; color: var(--red-dark); font: 700 .69rem/1 var(--font-mono); letter-spacing: .11em; text-transform: uppercase; }
@@ -165,6 +172,7 @@ kbd { width: 32px; height: 32px; display: grid; place-items: center; background:
 
 @media (hover: hover) and (pointer: fine) {
   nav a:hover, .fine-print a:hover, .roadmap > header a:hover, .site-footer a:hover { color: var(--red-dark); }
+  .release-banner:hover { background: #7e241d; }
   .command:hover b { color: #ffd1c4; }
   .record-tabs button:hover { background: #ebe6da; }
 }
@@ -172,6 +180,8 @@ kbd { width: 32px; height: 32px; display: grid; place-items: center; background:
 @media (max-width: 920px) {
   .header-note { display: none; }
   .site-header { grid-template-columns: 1fr auto; }
+  .release-banner { grid-template-columns: auto 1fr auto; }
+  .release-banner small { display: none; }
   .hero { grid-template-columns: 1fr; gap: 64px; }
   .product-frame { max-width: 720px; }
   .section-heading, .terminal-notes { grid-template-columns: 1fr; gap: 30px; }
@@ -191,6 +201,10 @@ kbd { width: 32px; height: 32px; display: grid; place-items: center; background:
 @media (max-width: 640px) {
   .wrap { width: min(1180px, calc(100% - 28px)); }
   .site-header { min-height: 66px; }
+  .release-banner { gap: 10px; }
+  .release-banner span { padding-left: 12px; }
+  .release-banner strong { font-size: .72rem; }
+  .release-banner b { padding-right: 12px; }
   nav a:first-child { display: none; }
   .hero { padding-block: 60px 72px; gap: 48px; }
   h1 { font-size: clamp(3.1rem, 15.5vw, 4.6rem); }

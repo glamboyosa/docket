@@ -156,6 +156,8 @@ docket config model <model-id>
 
 | Key | Action |
 | --- | --- |
+| `o` | Choose one or more files with the operating system's graphical picker |
+| `O` | Choose a folder with the operating system's graphical picker |
 | `a` | Enter a file or folder path to import |
 | `/` | Filter documents by filename or category |
 | `↑` / `k` | Move to the previous document or option |
