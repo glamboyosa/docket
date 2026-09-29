@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -18,6 +19,8 @@ type Dependencies struct {
 	Config     config.Config
 	List       func(context.Context) ([]domain.Document, error)
 	Add        func(context.Context, string) (int, error)
+	PickFiles  func(context.Context) ([]string, error)
+	PickFolder func(context.Context) (string, error)
 	SaveConfig func(config.Config) error
 	Models     func(context.Context, string) ([]provider.Model, error)
 }
@@ -62,6 +65,10 @@ type addedMsg struct {
 	count int
 	err   error
 }
+type pickedMsg struct {
+	paths []string
+	err   error
+}
 type tickMsg time.Time
 type modelsMsg struct {
 	models []provider.Model
@@ -104,6 +111,19 @@ func (m Model) Update(message tea.Msg) (tea.Model, tea.Cmd) {
 		m.message = fmt.Sprintf("%d document%s imported", msg.count, plural(msg.count))
 		m.refreshingAfterImport = true
 		return m, m.loadDocuments()
+	case pickedMsg:
+		m.busy = false
+		if msg.err != nil {
+			m.message = msg.err.Error()
+			return m, nil
+		}
+		if len(msg.paths) == 0 {
+			m.message = "Selection cancelled"
+			return m, nil
+		}
+		m.busy = true
+		m.message = fmt.Sprintf("Importing %d document%s…", len(msg.paths), plural(len(msg.paths)))
+		return m, tea.Batch(m.addDocuments(msg.paths), tick())
 	case modelsMsg:
 		m.busy = false
 		if msg.err != nil {
@@ -160,6 +180,12 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case "a":
 		m.mode, m.input, m.message = addPath, "", ""
+	case "o":
+		m.busy, m.message = true, "Opening file picker…"
+		return m, tea.Batch(m.pickFiles(), tick())
+	case "O":
+		m.busy, m.message = true, "Opening folder picker…"
+		return m, tea.Batch(m.pickFolder(), tick())
 	case "/":
 		m.mode, m.input, m.cursor = search, "", 0
 	case "s":
@@ -190,7 +216,7 @@ func (m Model) handleInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.mode, m.busy, m.message = browse, true, "Importing documents…"
-		return m, tea.Batch(m.addDocument(path), tick())
+		return m, tea.Batch(m.addDocuments([]string{path}), tick())
 	case "backspace":
 		m.input = removeLastRune(m.input)
 	default:
@@ -290,7 +316,7 @@ func (m Model) View() string {
 	case inspectDocument:
 		return m.panel("Document details", m.inspectView(min(max(38, m.width-16), 72)))
 	case help:
-		return m.panel("Keyboard", "↑/↓ or j/k  select a document\nenter        inspect selected document\na            add files or a folder\n/            filter documents\ns            provider and models\nr            refresh library\n?            this help\nq            quit\n\nSelected guidance appears on the right when space allows.\nOriginal files are never moved or changed.")
+		return m.panel("Keyboard", "↑/↓ or j/k  select a document\nenter        inspect selected document\no            choose files\nO            choose a folder\na            add by path\n/            filter documents\ns            provider and models\nr            refresh library\n?            this help\nq            quit\n\nSelected guidance appears on the right when space allows.\nOriginal files are never moved or changed.")
 	default:
 		return base
 	}
@@ -319,7 +345,7 @@ func (m Model) mainView() string {
 		right := detailStyle.Width(rightWidth).Height(bodyHeight).Render(m.detailView(rightWidth-4, bodyHeight-2))
 		body = lipgloss.JoinHorizontal(lipgloss.Top, left, right)
 	}
-	guide := mutedStyle.Render(truncate("↑/↓ select   enter details   a add   / filter   s models   ? help   q quit", innerWidth))
+	guide := mutedStyle.Render(truncate("↑/↓ select   enter details   o pick   a add   / filter   s models   ? help   q quit", innerWidth))
 	footer := guide
 	if status != "" {
 		footer = truncate(status, innerWidth) + "\n" + guide
@@ -334,7 +360,7 @@ func (m Model) listView(width, height int) string {
 		query = accentStyle.Render("/ "+m.input+"█") + "\n\n"
 	}
 	if len(docs) == 0 {
-		return query + mutedStyle.Render("No documents yet.\n\nPress a to add one.")
+		return query + mutedStyle.Render("No documents yet.\n\nPress o to choose files or a to enter a path.")
 	}
 	lines := []string{sectionStyle.Render(fmt.Sprintf("DOCUMENTS  %d", len(docs))), ""}
 	available := max(1, height-3)
@@ -508,10 +534,40 @@ func (m Model) loadDocuments() tea.Cmd {
 	}
 }
 
-func (m Model) addDocument(path string) tea.Cmd {
+func (m Model) addDocuments(paths []string) tea.Cmd {
 	return func() tea.Msg {
-		count, err := m.deps.Add(context.Background(), path)
-		return addedMsg{count: count, err: err}
+		count := 0
+		for _, path := range paths {
+			added, err := m.deps.Add(context.Background(), path)
+			count += added
+			if err != nil {
+				return addedMsg{count: count, err: err}
+			}
+		}
+		return addedMsg{count: count}
+	}
+}
+
+func (m Model) pickFiles() tea.Cmd {
+	return func() tea.Msg {
+		if m.deps.PickFiles == nil {
+			return pickedMsg{err: errors.New("graphical file picker is unavailable")}
+		}
+		paths, err := m.deps.PickFiles(context.Background())
+		return pickedMsg{paths: paths, err: err}
+	}
+}
+
+func (m Model) pickFolder() tea.Cmd {
+	return func() tea.Msg {
+		if m.deps.PickFolder == nil {
+			return pickedMsg{err: errors.New("graphical folder picker is unavailable")}
+		}
+		path, err := m.deps.PickFolder(context.Background())
+		if path == "" {
+			return pickedMsg{err: err}
+		}
+		return pickedMsg{paths: []string{path}, err: err}
 	}
 }
 

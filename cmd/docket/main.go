@@ -17,6 +17,7 @@ import (
 	"github.com/glamboyosa/docket/internal/config"
 	"github.com/glamboyosa/docket/internal/domain"
 	"github.com/glamboyosa/docket/internal/files"
+	"github.com/glamboyosa/docket/internal/picker"
 	"github.com/glamboyosa/docket/internal/provider"
 	"github.com/glamboyosa/docket/internal/store"
 	"github.com/glamboyosa/docket/internal/tui"
@@ -67,6 +68,8 @@ func runTUI() error {
 			docs, err := processPath(ctx, s, path)
 			return len(docs), err
 		},
+		PickFiles:  picker.Files,
+		PickFolder: picker.Folder,
 		SaveConfig: config.Save,
 		Models: func(ctx context.Context, providerName string) ([]provider.Model, error) {
 			apiKey, err := config.Secret(providerName)

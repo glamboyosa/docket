@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 
@@ -132,6 +133,81 @@ func TestAddFlowCleansDraggedPath(t *testing.T) {
 	}
 	if added != "/tmp/Test File.pdf" {
 		t.Fatalf("added path = %q", added)
+	}
+}
+
+func TestGraphicalFilePickerImportsEverySelection(t *testing.T) {
+	t.Parallel()
+	var added []string
+	m := New(Dependencies{
+		Config: config.Config{Provider: "openai", Model: "test-model"},
+		PickFiles: func(context.Context) ([]string, error) {
+			return []string{"/tmp/lease.pdf", "/tmp/photo.jpg"}, nil
+		},
+		Add: func(_ context.Context, path string) (int, error) {
+			added = append(added, path)
+			return 1, nil
+		},
+	})
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	m = updated.(Model)
+	if !m.busy || m.message != "Opening file picker…" || cmd == nil {
+		t.Fatalf("busy = %v, message = %q", m.busy, m.message)
+	}
+
+	commands := cmd().(tea.BatchMsg)
+	updated, cmd = m.Update(commands[0]())
+	m = updated.(Model)
+	if !m.busy || m.message != "Importing 2 documents…" || cmd == nil {
+		t.Fatalf("busy = %v, message = %q", m.busy, m.message)
+	}
+
+	commands = cmd().(tea.BatchMsg)
+	updated, _ = m.Update(commands[0]())
+	m = updated.(Model)
+	if !slices.Equal(added, []string{"/tmp/lease.pdf", "/tmp/photo.jpg"}) {
+		t.Fatalf("added = %q", added)
+	}
+	if m.message != "2 documents imported" {
+		t.Fatalf("message = %q", m.message)
+	}
+}
+
+func TestGraphicalPickerCancelReturnsToLibrary(t *testing.T) {
+	t.Parallel()
+	m := New(Dependencies{
+		Config:    config.Config{Provider: "openai", Model: "test-model"},
+		PickFiles: func(context.Context) ([]string, error) { return nil, nil },
+	})
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
+	m = updated.(Model)
+	commands := cmd().(tea.BatchMsg)
+	updated, cmd = m.Update(commands[0]())
+	m = updated.(Model)
+	if m.busy || m.message != "Selection cancelled" || cmd != nil {
+		t.Fatalf("busy = %v, message = %q, cmd = %v", m.busy, m.message, cmd)
+	}
+}
+
+func TestGraphicalFolderPickerUsesUppercaseO(t *testing.T) {
+	t.Parallel()
+	var picked bool
+	m := New(Dependencies{
+		Config: config.Config{Provider: "openai", Model: "test-model"},
+		PickFolder: func(context.Context) (string, error) {
+			picked = true
+			return "/tmp/documents", nil
+		},
+		Add: func(context.Context, string) (int, error) { return 3, nil },
+	})
+
+	updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'O'}})
+	commands := cmd().(tea.BatchMsg)
+	updated, _ = updated.(Model).Update(commands[0]())
+	if !picked || !updated.(Model).busy {
+		t.Fatalf("picked = %v, busy = %v", picked, updated.(Model).busy)
 	}
 }
 
