@@ -7,6 +7,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+
 	"github.com/glamboyosa/docket/internal/domain"
 	"github.com/glamboyosa/docket/internal/files"
 	"github.com/glamboyosa/docket/internal/provider"
@@ -51,21 +55,59 @@ func (p *Processor) Add(ctx context.Context, source string) (*domain.Document, e
 	return p.Store.ByID(ctx, doc.ID)
 }
 
-func (p *Processor) Process(ctx context.Context, doc *domain.Document) error {
+func (p *Processor) Process(ctx context.Context, doc *domain.Document) (processErr error) {
+	ctx, span := otel.Tracer("docket").Start(ctx, "docket.process")
+	defer func() {
+		if processErr != nil {
+			span.SetStatus(codes.Error, "document processing failed")
+		}
+		span.End()
+	}()
+	span.SetAttributes(attribute.String("langfuse.observation.type", "span"))
+	if environment := os.Getenv("LANGFUSE_TRACING_ENVIRONMENT"); environment != "" {
+		span.SetAttributes(attribute.String("langfuse.environment", environment))
+	}
+	if traceFile := os.Getenv("DOCKET_EVAL_TRACE_ID_FILE"); traceFile != "" {
+		if err := os.WriteFile(traceFile, []byte(span.SpanContext().TraceID().String()), 0o600); err != nil {
+			return fmt.Errorf("write evaluation trace ID: %w", err)
+		}
+	}
 	if err := p.status(ctx, doc.ID, domain.StatusExtracting, ""); err != nil {
 		return err
 	}
-	text, err := p.Extractor.Extract(ctx, doc.LibraryPath)
+	extractCtx, extraction := otel.Tracer("docket").Start(ctx, "docket.extract")
+	if provider.RequiresRemoteExtraction(doc.LibraryPath) {
+		extraction.SetAttributes(attribute.String("langfuse.observation.type", "generation"), attribute.String("gen_ai.request.model", p.Model), attribute.String("gen_ai.system", p.Provider))
+	}
+	text, err := p.Extractor.Extract(extractCtx, doc.LibraryPath)
+	if err != nil {
+		extraction.SetStatus(codes.Error, "extraction failed")
+	}
+	extraction.End()
 	if err != nil {
 		return p.fail(ctx, doc.ID, fmt.Errorf("extract text: %w", err))
 	}
 	if err := p.status(ctx, doc.ID, domain.StatusClassifying, ""); err != nil {
 		return err
 	}
-	classification, err := p.Classifier.Classify(ctx, text)
+	classifyCtx, classificationSpan := otel.Tracer("docket").Start(ctx, "docket.classify")
+	classificationSpan.SetAttributes(attribute.String("langfuse.observation.type", "generation"), attribute.String("gen_ai.request.model", "jev-latest"), attribute.String("gen_ai.system", "typesafe"))
+	classification, err := p.Classifier.Classify(classifyCtx, text)
+	if err != nil {
+		classificationSpan.SetStatus(codes.Error, "classification failed")
+	} else {
+		classificationSpan.SetAttributes(attribute.String("docket.category", classification.Category), attribute.Float64("docket.category_confidence", classification.CategoryConfidence), attribute.Bool("docket.review", classification.Review))
+	}
+	classificationSpan.End()
 	if err != nil {
 		return p.fail(ctx, doc.ID, fmt.Errorf("classify document: %w", err))
 	}
+	span.SetAttributes(
+		attribute.String("docket.category", classification.Category),
+		attribute.Bool("docket.needs_action", classification.NeedsAction),
+		attribute.Bool("docket.review", classification.Review),
+	)
+	span.SetAttributes(attribute.String("langfuse.observation.output", classification.Category))
 	path, err := p.Library.File(doc.LibraryPath, classification.Category)
 	if err != nil {
 		return p.fail(ctx, doc.ID, err)

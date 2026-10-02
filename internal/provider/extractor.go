@@ -12,6 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const extractionPrompt = "Transcribe every visible word in this document. Preserve headings, tables, labels, and reading order in plain Markdown. Do not summarize or interpret. Mark unreadable text as [illegible]. Return only the transcription."
@@ -125,6 +128,10 @@ func (e RemoteExtractor) openRouter(ctx context.Context, path string, data []byt
 		payload.Plugins = []openRouterPlugin{{ID: "file-parser"}}
 	}
 	var response struct {
+		Usage struct {
+			PromptTokens     int `json:"prompt_tokens"`
+			CompletionTokens int `json:"completion_tokens"`
+		} `json:"usage"`
 		Choices []struct {
 			Message struct {
 				Content string `json:"content"`
@@ -145,6 +152,7 @@ func (e RemoteExtractor) openRouter(ctx context.Context, path string, data []byt
 	if err := json.Unmarshal(body, &response); err != nil {
 		return "", fmt.Errorf("decode extraction response: %w", err)
 	}
+	recordUsage(ctx, response.Usage.PromptTokens, response.Usage.CompletionTokens)
 	if len(response.Choices) == 0 {
 		return "", fmt.Errorf("OpenRouter returned no transcription")
 	}
@@ -168,6 +176,10 @@ func (e RemoteExtractor) openAI(ctx context.Context, path string, data []byte) (
 		}}},
 	}
 	var response struct {
+		Usage struct {
+			InputTokens  int `json:"input_tokens"`
+			OutputTokens int `json:"output_tokens"`
+		} `json:"usage"`
 		Output []struct {
 			Content []struct {
 				Type string `json:"type"`
@@ -188,6 +200,7 @@ func (e RemoteExtractor) openAI(ctx context.Context, path string, data []byte) (
 	if err := json.Unmarshal(body, &response); err != nil {
 		return "", fmt.Errorf("decode extraction response: %w", err)
 	}
+	recordUsage(ctx, response.Usage.InputTokens, response.Usage.OutputTokens)
 	for _, output := range response.Output {
 		for _, content := range output.Content {
 			if content.Type == "output_text" && strings.TrimSpace(content.Text) != "" {
@@ -196,6 +209,16 @@ func (e RemoteExtractor) openAI(ctx context.Context, path string, data []byte) (
 		}
 	}
 	return "", fmt.Errorf("OpenAI returned no transcription")
+}
+
+func recordUsage(ctx context.Context, input, output int) {
+	if input == 0 && output == 0 {
+		return
+	}
+	trace.SpanFromContext(ctx).SetAttributes(
+		attribute.Int("gen_ai.usage.input_tokens", input),
+		attribute.Int("gen_ai.usage.output_tokens", output),
+	)
 }
 
 func (e RemoteExtractor) post(ctx context.Context, url string, body []byte, headers map[string]string) ([]byte, error) {

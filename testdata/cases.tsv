@@ -1,6 +1,7 @@
-# path	expected categories
-documents/synthetic/lease-notice.md	housing
-documents/synthetic/tuition-statement.txt	education
+# path	expected categories	expected action (1, 0, or - when unlabelled)
+documents/synthetic/lease-notice.md	housing	1
+documents/synthetic/tuition-statement.txt	education	1
+documents/synthetic/info-letter.txt	correspondence	0
 documents/generated/receipt.png	receipts
 documents/generated/lab-results.png	medical
 documents/generated/receipt.jpg	receipts

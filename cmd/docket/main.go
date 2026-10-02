@@ -20,11 +20,22 @@ import (
 	"github.com/glamboyosa/docket/internal/picker"
 	"github.com/glamboyosa/docket/internal/provider"
 	"github.com/glamboyosa/docket/internal/store"
+	"github.com/glamboyosa/docket/internal/telemetry"
 	"github.com/glamboyosa/docket/internal/tui"
 )
 
 func main() {
-	if err := run(os.Args[1:]); err != nil {
+	shutdown, traceErr := telemetry.Start(context.Background())
+	if traceErr != nil {
+		fmt.Fprintln(os.Stderr, "docket: tracing setup failed")
+	}
+	err := run(os.Args[1:])
+	if shutdown != nil {
+		if traceErr := shutdown(context.Background()); traceErr != nil {
+			fmt.Fprintln(os.Stderr, "docket: tracing flush failed")
+		}
+	}
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "docket:", err)
 		os.Exit(1)
 	}
