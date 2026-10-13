@@ -73,8 +73,9 @@ func runTUI() error {
 	}
 	defer s.Close()
 	model := tui.New(tui.Dependencies{
-		Config: cfg,
-		List:   s.List,
+		Config:              cfg,
+		List:                s.List,
+		SetActionResolution: s.SetActionResolution,
 		Add: func(ctx context.Context, path string) (int, error) {
 			docs, err := processPath(ctx, s, path)
 			return len(docs), err

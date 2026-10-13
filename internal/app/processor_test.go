@@ -33,12 +33,12 @@ func TestProcessorCopiesClassifiesAndFiles(t *testing.T) {
 	if err := os.WriteFile(source, []byte("lease"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	p := &Processor{Store: s, Library: files.Library{Root: filepath.Join(root, "library")}, Extractor: fakeExtractor{"lease"}, Classifier: fakeClassifier{domain.Classification{Category: "housing", CategoryConfidence: .93, CategoryProbabilities: map[string]float64{"housing": .93}}}, Provider: "openai", Model: "test-model"}
+	p := &Processor{Store: s, Library: files.Library{Root: filepath.Join(root, "library")}, Extractor: fakeExtractor{"lease"}, Classifier: fakeClassifier{domain.Classification{Category: "housing", CategoryConfidence: .93, CategoryProbabilities: map[string]float64{"housing": .93}, ActionAssessment: "unclear", ActionConfidence: .8, ActionReview: true}}, Provider: "openai", Model: "test-model"}
 	doc, err := p.Add(context.Background(), source)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if doc.Status != domain.StatusFiled || doc.Category != "housing" {
+	if doc.Status != domain.StatusFiled || doc.Category != "housing" || doc.Review || !doc.ActionReview || doc.ActionAssessment != "unclear" {
 		t.Fatalf("unexpected document: %+v", doc)
 	}
 	if filepath.Dir(doc.LibraryPath) != filepath.Join(root, "library", "housing") {

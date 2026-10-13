@@ -38,6 +38,7 @@ type jevQuestions struct {
 	Sensitivity scoreQuestion  `json:"sensitivity"`
 	Urgency     scoreQuestion  `json:"urgency"`
 	NeedsAction noulQuestion   `json:"needs_action"`
+	ActionState choiceQuestion `json:"action_state"`
 }
 
 type choiceQuestion struct {
@@ -84,12 +85,19 @@ func (j Jev) Classify(ctx context.Context, text string) (domain.Classification, 
 			Sensitivity: scoreQuestion{Type: "score", Instructions: "How sensitive is the information in `document`?", Criteria: []string{
 				"Public or routine", "Personal", "Confidential", "Highly sensitive identity, health, legal, or financial data",
 			}},
-			Urgency: scoreQuestion{Type: "score", Instructions: "How urgently must the recipient respond to `document`?", Criteria: []string{
+			Urgency: scoreQuestion{Type: "score", Instructions: "How urgently must the recipient respond to a currently outstanding request in `document`? A completed, quoted, or purely historical request has no current deadline.", Criteria: []string{
 				"No deadline or action", "Action eventually", "Time-sensitive", "Immediate deadline, penalty, or serious consequence",
 			}},
-			NeedsAction: noulQuestion{Type: "noul", Instructions: "Does `document` ask or require the recipient to take an action?", Criteria: map[string]string{
+			NeedsAction: noulQuestion{Type: "noul", Instructions: "Does `document` currently ask or require the recipient to take an action? A receipt confirming payment or a quotation of someone else's request does not.", Criteria: map[string]string{
 				"true":  "The recipient is asked or required to respond, pay, submit, sign, attend, or complete another action",
 				"false": "The document is informational or archival and requires no recipient action",
+			}},
+			ActionState: choiceQuestion{Type: "choice", Instructions: "Is a recipient action currently outstanding in `document`? Distinguish a current request from a completed action, a quoted request, and an old notice whose outcome cannot be established. Do not assume a past due date means the action was completed or is still payable.", Criteria: map[string]string{
+				"current":   "A request to the recipient appears outstanding, with no evidence it was completed or superseded",
+				"completed": "The document confirms the requested action was completed, such as a paid receipt",
+				"quoted":    "A request is quoted or describes another person's request, not an instruction to this recipient",
+				"none":      "No recipient action is requested or described",
+				"unclear":   "The action's present status cannot be established from the document",
 			}},
 		},
 	}
@@ -139,6 +147,10 @@ func parseJevAnswers(answers map[string]json.RawMessage) (domain.Classification,
 	var action struct {
 		Noul float64 `json:"noul"`
 	}
+	var actionState struct {
+		Choice     string  `json:"choice"`
+		Confidence float64 `json:"confidence"`
+	}
 	if err := json.Unmarshal(answers["category"], &category); err != nil || category.Choice == "" {
 		return domain.Classification{}, fmt.Errorf("Jev returned no document category")
 	}
@@ -151,10 +163,23 @@ func parseJevAnswers(answers map[string]json.RawMessage) (domain.Classification,
 	if err := json.Unmarshal(answers["needs_action"], &action); err != nil {
 		return domain.Classification{}, fmt.Errorf("decode Jev action: %w", err)
 	}
+	if err := json.Unmarshal(answers["action_state"], &actionState); err != nil {
+		return domain.Classification{}, fmt.Errorf("decode Jev action state: %w", err)
+	}
+	switch actionState.Choice {
+	case "current", "completed", "quoted", "none", "unclear":
+	default:
+		return domain.Classification{}, fmt.Errorf("Jev returned no valid action state")
+	}
+	needsAction := actionState.Choice == "current" && action.Noul >= .65
+	actionReview := actionState.Choice == "unclear" || actionState.Confidence < .55 ||
+		(actionState.Choice == "current" && action.Noul < .65) ||
+		(actionState.Choice != "current" && action.Noul >= .65)
 	return domain.Classification{
 		Category: category.Choice, CategoryConfidence: category.Confidence, CategoryProbabilities: category.Probabilities,
 		Sensitivity: sensitivity.Score, SensitivityConfidence: sensitivity.Confidence,
 		Urgency: urgency.Score, UrgencyConfidence: urgency.Confidence,
-		NeedsAction: action.Noul >= 0.65, NeedsActionProbability: action.Noul,
+		NeedsAction: needsAction, NeedsActionProbability: action.Noul,
+		ActionAssessment: actionState.Choice, ActionConfidence: actionState.Confidence, ActionReview: actionReview,
 	}, nil
 }

@@ -20,14 +20,15 @@ import (
 )
 
 type Dependencies struct {
-	Config     config.Config
-	List       func(context.Context) ([]domain.Document, error)
-	Add        func(context.Context, string) (int, error)
-	PickFiles  func(context.Context) ([]string, error)
-	PickFolder func(context.Context) (string, error)
-	BrowsePath string
-	SaveConfig func(config.Config) error
-	Models     func(context.Context, string) ([]provider.Model, error)
+	Config              config.Config
+	List                func(context.Context) ([]domain.Document, error)
+	SetActionResolution func(context.Context, int64, string) error
+	Add                 func(context.Context, string) (int, error)
+	PickFiles           func(context.Context) ([]string, error)
+	PickFolder          func(context.Context) (string, error)
+	BrowsePath          string
+	SaveConfig          func(config.Config) error
+	Models              func(context.Context, string) ([]provider.Model, error)
 }
 
 type mode int
@@ -215,7 +216,27 @@ func (m Model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case inspectDocument:
 		if key.String() == "esc" || key.String() == "enter" || key.String() == "q" {
 			m.mode = browse
+			return m, nil
 		}
+		resolution := ""
+		switch key.String() {
+		case "d":
+			resolution = "done"
+		case "n":
+			resolution = "not_applicable"
+		case "u":
+		default:
+			return m, nil
+		}
+		if m.cursor >= len(m.docs) || m.docs[m.cursor].Status != domain.StatusFiled || m.deps.SetActionResolution == nil {
+			return m, nil
+		}
+		if err := m.deps.SetActionResolution(context.Background(), m.docs[m.cursor].ID, resolution); err != nil {
+			m.message = err.Error()
+			return m, nil
+		}
+		m.docs[m.cursor].ActionResolution = resolution
+		m.message = ""
 		return m, nil
 	case help:
 		if key.String() == "esc" || key.String() == "?" || key.String() == "q" {
@@ -442,7 +463,7 @@ func (m Model) View() string {
 	case inspectDocument:
 		return m.panel("Document details", m.inspectView(min(max(38, m.width-16), 72)))
 	case help:
-		return m.panel("Keyboard", "↑/↓ or j/k  select a document\nenter        inspect selected document\na            browse files in Docket\no            open the system file picker\nO            choose a folder with the system picker\n/            filter documents\ns            provider and models\nr            refresh library\n?            this help\nq            quit\n\nInside the file browser, use ←/→ to leave or enter folders.\nPress p to paste or drag a path.\nOriginal files are never moved or changed.")
+		return m.panel("Keyboard", "↑/↓ or j/k  select a document\nenter        inspect selected document\nd/n/u        done / not applicable / reopen in details\na            browse files in Docket\no            open the system file picker\nO            choose a folder with the system picker\n/            filter documents\ns            provider and models\nr            refresh library\n?            this help\nq            quit\n\nInside the file browser, use ←/→ to leave or enter folders.\nPress p to paste or drag a path.\nOriginal files are never moved or changed.")
 	default:
 		return base
 	}
@@ -607,11 +628,48 @@ func (m Model) inspectView(width int) string {
 		truncate(doc.OriginalName, width),
 		labelValue("Category", strings.ToUpper(category)),
 		labelValue("Confidence", confidence),
+		sectionStyle.Render("JEV OUTPUT"),
 	}
 	if doc.Status == domain.StatusFiled {
-		rows = append(rows, guidanceRows(doc, width)...)
+		valueWidth := max(1, width-14)
+		handling := labelValue("Handling", handlingGuidance(doc.Sensitivity))
+		if m.message != "" && m.height < 25 {
+			handling = errorStyle.Render(truncate(m.message, width))
+		}
+		categoryReview := "Not required"
+		if doc.Review {
+			categoryReview = "Verify category"
+		}
+		actionReview := "Not required"
+		if doc.ActionReview && doc.ActionResolution == "" {
+			actionReview = "Action needs review"
+		}
+		if doc.ActionResolution == "done" {
+			actionReview = "Done"
+		}
+		if doc.ActionResolution == "not_applicable" {
+			actionReview = "Not applicable"
+		}
+		rows = append(rows,
+			labelValue("Sensitivity", truncate(scoreOutput(doc.Sensitivity, sensitivityLevel(doc.Sensitivity)), valueWidth)),
+			labelValue("Urgency", truncate(scoreOutput(doc.Urgency, urgencyLevel(doc.Urgency)), valueWidth)),
+			labelValue("Needs action", fmt.Sprintf("%.0f%%", doc.NeedsActionProbability*100)),
+			labelValue("Action state", truncate(actionStateOutput(doc), valueWidth)),
+			sectionStyle.Render("DOCKET GUIDANCE"),
+			labelValue("Next step", truncate(nextStep(doc), valueWidth)),
+			handling,
+			labelValue("Action", truncate(actionGuidance(doc), valueWidth)),
+			labelValue("Review", categoryReview),
+			labelValue("Action review", actionReview),
+			mutedStyle.Render("d done   n not applicable   u reopen   esc back"),
+		)
 	}
-	rows = append(rows, "", labelValue("Provider used", doc.Provider), labelValue("Model used", truncate(doc.Model, max(1, width-14))))
+	if m.height >= 28 {
+		rows = append(rows, labelValue("Provider used", doc.Provider), labelValue("Model used", truncate(doc.Model, max(1, width-14))))
+	}
+	if m.message != "" && (m.height >= 25 || doc.Status != domain.StatusFiled) {
+		rows = append(rows, errorStyle.Render(truncate(m.message, width)))
+	}
 	return strings.Join(rows, "\n")
 }
 
@@ -805,7 +863,7 @@ func statusMark(doc domain.Document) string {
 	if doc.Status == domain.StatusFailed {
 		return errorStyle.Render("×")
 	}
-	if doc.Review {
+	if doc.Review || (doc.ActionReview && doc.ActionResolution == "") {
 		return warningStyle.Render("!")
 	}
 	if doc.Status == domain.StatusFiled {
@@ -821,6 +879,12 @@ func documentListLabel(doc domain.Document) string {
 	}
 	if doc.Review {
 		return category + " · review"
+	}
+	if doc.ActionReview && doc.ActionResolution == "" {
+		return category + " · action review"
+	}
+	if doc.ActionResolution != "" || doc.ActionAssessment == "completed" || doc.ActionAssessment == "quoted" || doc.ActionAssessment == "none" {
+		return category
 	}
 	if !doc.NeedsAction {
 		return category
@@ -848,21 +912,45 @@ func guidanceRows(doc domain.Document, width int) []string {
 	if doc.Review {
 		review = "Required · verify category"
 	}
+	actionReview := "Not required"
+	if doc.ActionReview && doc.ActionResolution == "" {
+		actionReview = "Action needs review"
+	}
+	if doc.ActionResolution == "done" {
+		actionReview = "Done"
+	}
+	if doc.ActionResolution == "not_applicable" {
+		actionReview = "Not applicable"
+	}
 	return []string{
 		"", sectionStyle.Render("JEV OUTPUT"),
 		labelValue("Sensitivity", truncate(scoreOutput(doc.Sensitivity, sensitivityLevel(doc.Sensitivity)), valueWidth)),
 		labelValue("Urgency", truncate(scoreOutput(doc.Urgency, urgencyLevel(doc.Urgency)), valueWidth)),
 		labelValue("Needs action", fmt.Sprintf("%.0f%%", doc.NeedsActionProbability*100)),
+		labelValue("Action state", truncate(actionStateOutput(doc), valueWidth)),
 		"", sectionStyle.Render("DOCKET GUIDANCE"),
 		labelValue("Next step", truncate(nextStep(doc), valueWidth)),
 		labelValue("Handling", truncate(handlingGuidance(doc.Sensitivity), valueWidth)),
 		labelValue("Action", truncate(actionGuidance(doc), valueWidth)),
 		labelValue("Review", truncate(review, valueWidth)),
+		labelValue("Action review", truncate(actionReview, valueWidth)),
 		mutedStyle.Render(truncate("Triage signal · verify exact dates in the document", width)),
 	}
 }
 
 func nextStep(doc domain.Document) string {
+	if doc.ActionResolution != "" {
+		return "No open action"
+	}
+	if doc.ActionReview {
+		return "Check the request in the document"
+	}
+	if doc.ActionAssessment == "completed" || doc.ActionAssessment == "quoted" || doc.ActionAssessment == "none" {
+		if doc.Review {
+			return "Verify the category"
+		}
+		return "File for reference"
+	}
 	if actionIsUnclear(doc.NeedsActionProbability) {
 		return "Check for a request or deadline"
 	}
@@ -929,6 +1017,29 @@ func handlingGuidance(score float64) string {
 }
 
 func actionGuidance(doc domain.Document) string {
+	if doc.ActionResolution == "done" {
+		return "Marked done"
+	}
+	if doc.ActionResolution == "not_applicable" {
+		return "Marked not applicable"
+	}
+	if doc.ActionReview && doc.ActionAssessment != "unclear" {
+		if (doc.ActionAssessment == "current" && doc.NeedsActionProbability < .65) ||
+			(doc.ActionAssessment != "current" && doc.NeedsActionProbability >= .65) {
+			return "Conflicting action results"
+		}
+		return "Low-confidence action assessment"
+	}
+	switch doc.ActionAssessment {
+	case "completed":
+		return "Already completed"
+	case "quoted":
+		return "Quoted request only"
+	case "none":
+		return "No request detected"
+	case "unclear":
+		return "Current status unclear"
+	}
 	probability := doc.NeedsActionProbability
 	if actionIsUnclear(probability) {
 		return fmt.Sprintf("Unclear · %.0f%% likelihood", probability*100)
@@ -943,6 +1054,31 @@ func actionGuidance(doc domain.Document) string {
 		return "Not detected"
 	}
 	return fmt.Sprintf("Not detected · %.0f%% likelihood", probability*100)
+}
+
+func actionStateLabel(assessment string) string {
+	switch assessment {
+	case "current":
+		return "Appears outstanding"
+	case "completed":
+		return "Completed"
+	case "quoted":
+		return "Quoted request"
+	case "none":
+		return "No request"
+	case "unclear":
+		return "Unclear"
+	default:
+		return "Not assessed"
+	}
+}
+
+func actionStateOutput(doc domain.Document) string {
+	label := actionStateLabel(doc.ActionAssessment)
+	if doc.ActionAssessment == "" {
+		return label
+	}
+	return fmt.Sprintf("%s · %.0f%% confidence", label, doc.ActionConfidence*100)
 }
 
 func actionIsUnclear(probability float64) bool {

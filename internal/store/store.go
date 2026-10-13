@@ -48,6 +48,10 @@ func (s *Store) migrate(ctx context.Context) error {
 			needs_action INTEGER NOT NULL DEFAULT 0,
 			needs_action_probability REAL NOT NULL DEFAULT 0,
 			review INTEGER NOT NULL DEFAULT 0,
+			action_assessment TEXT NOT NULL DEFAULT '',
+			action_confidence REAL NOT NULL DEFAULT 0,
+			action_review INTEGER NOT NULL DEFAULT 0,
+			action_resolution TEXT NOT NULL DEFAULT '',
 			provider TEXT NOT NULL DEFAULT '',
 			model TEXT NOT NULL DEFAULT '',
 			error TEXT NOT NULL DEFAULT '',
@@ -58,6 +62,40 @@ func (s *Store) migrate(ctx context.Context) error {
 	`)
 	if err != nil {
 		return fmt.Errorf("migrate database: %w", err)
+	}
+	rows, err := s.db.QueryContext(ctx, `PRAGMA table_info(documents)`)
+	if err != nil {
+		return fmt.Errorf("inspect documents schema: %w", err)
+	}
+	columns := make(map[string]bool)
+	for rows.Next() {
+		var id, notNull, primaryKey int
+		var name, dataType string
+		var defaultValue sql.NullString
+		if err := rows.Scan(&id, &name, &dataType, &notNull, &defaultValue, &primaryKey); err != nil {
+			rows.Close()
+			return fmt.Errorf("inspect documents schema: %w", err)
+		}
+		columns[name] = true
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return fmt.Errorf("inspect documents schema: %w", err)
+	}
+	additions := []struct{ name, definition string }{
+		{"action_assessment", "TEXT NOT NULL DEFAULT ''"},
+		{"action_confidence", "REAL NOT NULL DEFAULT 0"},
+		{"action_review", "INTEGER NOT NULL DEFAULT 0"},
+		{"action_resolution", "TEXT NOT NULL DEFAULT ''"},
+	}
+	for _, column := range additions {
+		if columns[column.name] {
+			continue
+		}
+		if _, err := s.db.ExecContext(ctx, `ALTER TABLE documents ADD COLUMN `+column.name+` `+column.definition); err != nil {
+			return fmt.Errorf("add %s column: %w", column.name, err)
+		}
 	}
 	return nil
 }
@@ -125,14 +163,36 @@ func (s *Store) Complete(ctx context.Context, id int64, path string, c domain.Cl
 	}
 	_, err = s.db.ExecContext(ctx, `
 		UPDATE documents SET library_path = ?, status = ?, category = ?, category_confidence = ?,
-		category_probabilities = ?, sensitivity = ?, urgency = ?, needs_action = ?, needs_action_probability = ?, review = ?, error = '', updated_at = ?
+		category_probabilities = ?, sensitivity = ?, urgency = ?, needs_action = ?, needs_action_probability = ?, review = ?,
+		action_assessment = ?, action_confidence = ?, action_review = ?, error = '', updated_at = ?
 		WHERE id = ?`, path, domain.StatusFiled, c.Category, c.CategoryConfidence, string(probabilities), c.Sensitivity,
-		c.Urgency, c.NeedsAction, c.NeedsActionProbability, c.Review, time.Now().UTC().Format(time.RFC3339Nano), id)
+		c.Urgency, c.NeedsAction, c.NeedsActionProbability, c.Review, c.ActionAssessment, c.ActionConfidence, c.ActionReview,
+		time.Now().UTC().Format(time.RFC3339Nano), id)
 	return err
+}
+
+func (s *Store) SetActionResolution(ctx context.Context, id int64, resolution string) error {
+	if resolution != "" && resolution != "done" && resolution != "not_applicable" {
+		return fmt.Errorf("invalid action resolution %q", resolution)
+	}
+	result, err := s.db.ExecContext(ctx, `UPDATE documents SET action_resolution = ?, updated_at = ? WHERE id = ? AND status = ?`,
+		resolution, time.Now().UTC().Format(time.RFC3339Nano), id, domain.StatusFiled)
+	if err != nil {
+		return fmt.Errorf("update action resolution: %w", err)
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return fmt.Errorf("filed document %d not found", id)
+	}
+	return nil
 }
 
 const selectDocument = `SELECT id, sha256, original_name, source_path, library_path, status, category,
 	category_confidence, category_probabilities, sensitivity, urgency, needs_action, needs_action_probability, review,
+	action_assessment, action_confidence, action_review, action_resolution,
 	provider, model, error, created_at, updated_at FROM documents`
 
 type scanner interface{ Scan(...any) error }
@@ -140,14 +200,15 @@ type scanner interface{ Scan(...any) error }
 func scanDocument(s scanner) (*domain.Document, error) {
 	var doc domain.Document
 	var probabilities, createdAt, updatedAt string
-	var needsAction, review bool
+	var needsAction, review, actionReview bool
 	err := s.Scan(&doc.ID, &doc.SHA256, &doc.OriginalName, &doc.SourcePath, &doc.LibraryPath, &doc.Status,
 		&doc.Category, &doc.CategoryConfidence, &probabilities, &doc.Sensitivity, &doc.Urgency, &needsAction, &doc.NeedsActionProbability,
-		&review, &doc.Provider, &doc.Model, &doc.Error, &createdAt, &updatedAt)
+		&review, &doc.ActionAssessment, &doc.ActionConfidence, &actionReview, &doc.ActionResolution,
+		&doc.Provider, &doc.Model, &doc.Error, &createdAt, &updatedAt)
 	if err != nil {
 		return nil, err
 	}
-	doc.NeedsAction, doc.Review = needsAction, review
+	doc.NeedsAction, doc.Review, doc.ActionReview = needsAction, review, actionReview
 	if err := json.Unmarshal([]byte(probabilities), &doc.CategoryProbabilities); err != nil {
 		return nil, fmt.Errorf("decode probabilities: %w", err)
 	}

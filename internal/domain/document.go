@@ -28,6 +28,9 @@ type Classification struct {
 	NeedsAction            bool               `json:"needs_action"`
 	NeedsActionProbability float64            `json:"needs_action_probability"`
 	Review                 bool               `json:"review"`
+	ActionAssessment       string             `json:"action_assessment"`
+	ActionConfidence       float64            `json:"action_confidence"`
+	ActionReview           bool               `json:"action_review"`
 }
 
 type Document struct {
@@ -45,6 +48,10 @@ type Document struct {
 	NeedsAction            bool
 	NeedsActionProbability float64
 	Review                 bool
+	ActionAssessment       string
+	ActionConfidence       float64
+	ActionReview           bool
+	ActionResolution       string
 	Provider               string
 	Model                  string
 	Error                  string

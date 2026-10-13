@@ -6,7 +6,7 @@ Docket is a Go terminal document classifier built around [TypeSafe's Jev](https:
 
 ## How Docket uses Jev
 
-[Jev](https://docs.typesafe.ai/concepts/system-one) is TypeSafe's first System One model. Instead of generating a paragraph and making the application parse it, Jev answers bounded questions with typed values, probabilities, and confidence. Docket asks Jev four questions about every document:
+[Jev](https://docs.typesafe.ai/concepts/system-one) is TypeSafe's first System One model. Instead of generating a paragraph and making the application parse it, Jev answers bounded questions with typed values, probabilities, and confidence. Docket asks Jev five questions about every document:
 
 | Jev primitive | Question | Result used by Docket |
 | --- | --- | --- |
@@ -14,6 +14,7 @@ Docket is a Go terminal document classifier built around [TypeSafe's Jev](https:
 | `Score` | How sensitive is its information? | A score from 0 to 3 and the nearest handling level |
 | `Score` | How urgently must the recipient respond? | A score from 0 to 3 and the nearest urgency level |
 | `Noul` | Does the document require the recipient to act? | Probability that a response, payment, signature, submission, attendance, or other action is required |
+| `Choice` | Is an action still outstanding, completed, quoted, absent, or unclear? | A separate action assessment and confidence, without changing the filing category |
 
 Docket keeps those Jev results visible and puts deterministic Go logic around them:
 
@@ -26,15 +27,17 @@ JEV OUTPUT
 Sensitivity    0.8 / 3 · Personal
 Urgency        1.6 / 3 · Time-sensitive
 Needs action   82%
+Action state   Appears outstanding
 
 DOCKET GUIDANCE
 Next step      Act soon; check exact deadline
 Handling       Keep private
 Action         Likely required · 82%
 Review         Not required
+Action review  Not required
 ```
 
-Go applies explicit thresholds to flag uncertain categories for review, translate scores into practical labels, choose the next step, and select the filing destination. Jev does not run OCR, copy files, or choose filesystem paths. It receives extracted text and provides the judgments that drive the workflow.
+Go applies explicit thresholds to flag uncertain categories and actions separately, translate scores into practical labels, choose the next step, and select the filing destination. In the TUI, open a document and press `d` for done, `n` for not applicable, or `u` to reopen the action. Those decisions do not change its category. Jev does not run OCR, copy files, or choose filesystem paths. It receives extracted text and provides the judgments that drive the workflow.
 
 | Stage | Implementation | Result |
 | --- | --- | --- |
@@ -166,6 +169,7 @@ docket config model <model-id>
 | `↑` / `k` | Move to the previous document or option |
 | `↓` / `j` | Move to the next document or option |
 | `Enter` | Inspect a library document, open a folder, or import a file |
+| `d` / `n` / `u` | In document details, mark an action done, not applicable, or reopen it |
 | `s` | Open provider and model settings |
 | `Enter` / `Ctrl+L` | Browse live compatible models while settings are open |
 | `Ctrl+S` | Save a manually entered model ID |
@@ -186,7 +190,7 @@ Docket accepts files up to 25 MB:
 - plain text
 - Markdown
 
-Jev classifies documents into `tax`, `legal`, `financial`, `medical`, `identity`, `insurance`, `employment`, `education`, `housing`, `receipts`, `correspondence`, or `other`. Low-confidence classifications are marked for review. Jev's results are triage signals, so check the document itself for exact dates and obligations.
+Jev classifies documents into `tax`, `legal`, `financial`, `medical`, `identity`, `insurance`, `employment`, `education`, `housing`, `receipts`, `correspondence`, or `other`. Low-confidence categories and unclear actions are marked for review independently. Docket does not show an evidence sentence, page, or verified deadline yet. Check the document itself before paying, signing, or replying.
 
 ## Local data and credentials
 
@@ -195,7 +199,7 @@ Docket stores application data in `~/Library/Application Support/docket` on macO
 | Local resource | What it contains |
 | --- | --- |
 | `config.json` | The selected extraction provider, model ID, and managed library path. It contains no API keys or document text. |
-| `docket.db` | Document name, SHA-256 hash, source and managed-copy paths, processing status, extraction provider and model, Jev category probabilities and confidence, sensitivity, urgency, action probability, review flag, errors, and timestamps. It contains no API keys or extracted document text. |
+| `docket.db` | Document name, SHA-256 hash, source and managed-copy paths, processing status, extraction provider and model, Jev category probabilities and confidence, sensitivity, urgency, action probability, action assessment and confidence, separate category and action review flags, your action resolution, errors, and timestamps. It contains no API keys or extracted document text. |
 | OS keychain | The TypeSafe, OpenRouter, and OpenAI keys saved with `docket auth set`, under the `docket` service. |
 | Managed library | Copies of imported documents, filed by Jev category. The default path is `~/Documents/Docket`. |
 
@@ -216,7 +220,7 @@ Docket creates its data directory with user-only permissions and writes `config.
 | Service | Data sent | Result |
 | --- | --- | --- |
 | OpenAI or OpenRouter | The PDF or image bytes encoded as a data URL and a transcription instruction. PDF requests include the filename. Plain-text and Markdown files skip this request. | Extracted text, held in memory and not stored by Docket |
-| TypeSafe | The extracted text, the four Jev questions and their criteria, and the `jev-latest` model identifier | Category probabilities and confidence, sensitivity and urgency scores, score confidence, and action probability. Docket stores the classification results in SQLite. |
+| TypeSafe | The extracted text, the five Jev questions and their criteria, and the `jev-latest` model identifier | Category probabilities and confidence, sensitivity and urgency scores, score confidence, action probability, and action assessment with confidence. Docket stores the classification results in SQLite. |
 | OpenAI or OpenRouter model catalog | A request to list available models. OpenAI catalog requests use the configured OpenAI key. No document is sent. | Model identifiers and capability metadata |
 | Models.dev | A request for public model capability and release metadata. No document or API key is sent. | Public model metadata used to filter the provider catalog |
 

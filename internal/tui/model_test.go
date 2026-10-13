@@ -105,6 +105,101 @@ func TestEnterInspectsSelectedDocumentAtNarrowWidth(t *testing.T) {
 	}
 }
 
+func TestReviewActionFromDocumentDetails(t *testing.T) {
+	t.Parallel()
+	var savedID int64
+	var savedResolution string
+	m := New(Dependencies{
+		SetActionResolution: func(_ context.Context, id int64, resolution string) error {
+			savedID, savedResolution = id, resolution
+			return nil
+		},
+	})
+	m.width, m.height = 100, 32
+	m.docs = []domain.Document{{ID: 7, OriginalName: "old-notice.txt", Category: "housing", Status: domain.StatusFiled,
+		ActionAssessment: "unclear", ActionConfidence: .8, ActionReview: true, NeedsActionProbability: .52, Urgency: 2.8}}
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m = updated.(Model)
+	if !strings.Contains(m.View(), "Action needs review") {
+		t.Fatalf("missing action review in %s", m.View())
+	}
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	m = updated.(Model)
+	if savedID != 7 || savedResolution != "not_applicable" || m.docs[0].ActionResolution != "not_applicable" || m.docs[0].Category != "housing" {
+		t.Fatalf("unexpected review update: id=%d resolution=%q document=%+v", savedID, savedResolution, m.docs[0])
+	}
+	if strings.Contains(m.View(), "Act now") || !strings.Contains(m.View(), "Not applicable") {
+		t.Fatalf("resolved action displayed incorrectly: %s", m.View())
+	}
+	updated, _ = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}})
+	m = updated.(Model)
+	if savedResolution != "" || m.docs[0].ActionResolution != "" {
+		t.Fatalf("action did not reopen: %+v", m.docs[0])
+	}
+}
+
+func TestInspectFitsStandardTerminal(t *testing.T) {
+	t.Parallel()
+	m := New(Dependencies{})
+	m.width, m.height, m.mode = 80, 24, inspectDocument
+	m.message = ""
+	m.docs = []domain.Document{{ID: 1, OriginalName: "test-notice.txt", Category: "housing", Status: domain.StatusFiled,
+		ActionAssessment: "unclear", ActionConfidence: .8, ActionReview: true, NeedsActionProbability: .52}}
+	view := m.View()
+	if lines := strings.Count(view, "\n") + 1; lines > m.height {
+		t.Fatalf("inspect view is %d lines in a %d-line terminal", lines, m.height)
+	}
+	if !strings.Contains(view, "n not applicable") || !strings.Contains(view, "Action needs review") {
+		t.Fatalf("review controls clipped: %s", view)
+	}
+	if !strings.Contains(view, "Unclear · 80% confidence") {
+		t.Fatalf("action confidence missing: %s", view)
+	}
+	m.message = "Could not save action"
+	view = m.View()
+	if lines := strings.Count(view, "\n") + 1; lines > m.height {
+		t.Fatalf("error view is %d lines in a %d-line terminal", lines, m.height)
+	}
+	if !strings.Contains(view, "Could not save action") || !strings.Contains(view, "n not applicable") {
+		t.Fatalf("error or controls clipped: %s", view)
+	}
+}
+
+func TestCompletedAndQuotedRequestsDoNotBecomeTasks(t *testing.T) {
+	t.Parallel()
+	for _, assessment := range []string{"completed", "quoted"} {
+		doc := domain.Document{Category: "housing", Status: domain.StatusFiled,
+			ActionAssessment: assessment, ActionConfidence: .9, Urgency: 2.8, NeedsActionProbability: .1}
+		if got := nextStep(doc); got != "File for reference" {
+			t.Fatalf("%s next step = %q", assessment, got)
+		}
+		if got := documentListLabel(doc); got != "housing" {
+			t.Fatalf("%s list label = %q", assessment, got)
+		}
+	}
+}
+
+func TestConflictingActionAssessmentRequestsReview(t *testing.T) {
+	t.Parallel()
+	doc := domain.Document{Category: "housing", Status: domain.StatusFiled, ActionAssessment: "completed",
+		ActionReview: true, NeedsActionProbability: .9}
+	if got := nextStep(doc); got != "Check the request in the document" {
+		t.Fatalf("next step = %q", got)
+	}
+	if got := actionGuidance(doc); got != "Conflicting action results" {
+		t.Fatalf("action guidance = %q", got)
+	}
+}
+
+func TestLowConfidenceActionDoesNotClaimConflict(t *testing.T) {
+	t.Parallel()
+	doc := domain.Document{ActionAssessment: "none", ActionConfidence: .4,
+		ActionReview: true, NeedsActionProbability: .1}
+	if got := actionGuidance(doc); got != "Low-confidence action assessment" {
+		t.Fatalf("action guidance = %q", got)
+	}
+}
+
 func TestAddFlowCleansDraggedPath(t *testing.T) {
 	t.Parallel()
 	var added string
