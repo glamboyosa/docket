@@ -37,10 +37,10 @@ const installCommand = "curl -fsSL https://docket.glamboyosa.xyz/install.sh | sh
     </header>
 
     <main>
-      <a class="release-banner wrap" href="https://github.com/glamboyosa/docket/releases/tag/v0.3.1" aria-label="Read the Docket v0.3.1 release notes">
-        <span>NEW · v0.3.1</span>
-        <strong>A faster file browser.</strong>
-        <small>Press A to open it instantly, then use ← and → to move between folders.</small>
+      <a class="release-banner wrap" href="https://github.com/glamboyosa/docket/releases/tag/v0.4.0" aria-label="Read the Docket v0.4.0 release notes">
+        <span>NEW · v0.4.0</span>
+        <strong>Review actions without changing the filing category.</strong>
+        <small>Mark a request done or not applicable in the TUI.</small>
         <b aria-hidden="true">↗</b>
       </a>
 
@@ -106,7 +106,7 @@ const installCommand = "curl -fsSL https://docket.glamboyosa.xyz/install.sh | sh
           <div class="record-tabs" role="tablist" aria-label="Processing steps">
             <button type="button" role="tab" id="tab-copy" aria-controls="panel-copy" aria-selected="true" tabindex="0" data-record-tab="copy"><b>01</b><div><strong>Copy</strong><p>The source stays put. Docket works on its own copy.</p></div><span class="route-state">LOCAL</span></button>
             <button type="button" role="tab" id="tab-read" aria-controls="panel-read" aria-selected="false" tabindex="-1" data-record-tab="read"><b>02</b><div><strong>Read</strong><p>Your model turns a PDF or image into text.</p></div><span class="route-state external">YOUR KEY</span></button>
-            <button type="button" role="tab" id="tab-decide" aria-controls="panel-decide" aria-selected="false" tabindex="-1" data-record-tab="decide"><b>03</b><div><strong>Decide</strong><p>Jev returns a category, sensitivity and urgency scores, an action estimate, and confidence levels.</p></div><span class="route-state external">JEV</span></button>
+            <button type="button" role="tab" id="tab-decide" aria-controls="panel-decide" aria-selected="false" tabindex="-1" data-record-tab="decide"><b>03</b><div><strong>Decide</strong><p>Jev returns a category, sensitivity and urgency scores, and a separate assessment of any requested action.</p></div><span class="route-state external">JEV</span></button>
             <button type="button" role="tab" id="tab-file" aria-controls="panel-file" aria-selected="false" tabindex="-1" data-record-tab="file"><b>04</b><div><strong>File</strong><p>Docket files the copy and records its category and location.</p></div><span class="route-state">LOCAL</span></button>
           </div>
         </div>
@@ -140,7 +140,7 @@ const installCommand = "curl -fsSL https://docket.glamboyosa.xyz/install.sh | sh
               <dt>legal</dt><dd>4%</dd><dt>other</dt><dd>2%</dd>
               <dt>sensitivity</dt><dd>1.8 / 3</dd><dt>needs_action</dt><dd>0.12</dd>
             </dl>
-            <p>If Jev is unsure, Docket shows the other likely categories and marks the document for review.</p>
+            <p>Docket reviews uncertain categories and uncertain actions separately. Marking an action done or not applicable never changes where the document is filed.</p>
           </article>
 
           <article class="record-panel" role="tabpanel" id="panel-file" aria-labelledby="tab-file" data-record-panel="file" hidden>
