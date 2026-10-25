@@ -471,7 +471,7 @@ func (m Model) View() string {
 
 func (m Model) mainView() string {
 	innerWidth := max(30, m.width-4)
-	header := titleStyle.Render("✣  DOCKET") + "  " + mutedStyle.Render("a quiet place for every document")
+	header := titleStyle.Render("✣  DOCKET")
 	status := m.message
 	if m.busy {
 		frames := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
